@@ -1,10 +1,5 @@
 #!/bin/bash
-# WINTUNELING VPN - PROFESSIONAL EDITION
-# Features: Auto Backup 00:00, New Clean Widget, Strict IP Check
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
 LICENSE_URL="http://129.226.206.227:3000/whitelist"
 DIR="/etc/zivpn"
 DIR_API="$DIR/api"
