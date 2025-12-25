@@ -1,10 +1,9 @@
 #!/bin/bash
 # ============================================================
-# WINTUNELING VPN - CLIENT INSTALLER (FINAL VERSION)
+# WINTUNELING VPN - CLIENT INSTALLER (FINAL FIXED)
 # ============================================================
 
-# ⚠️ GANTI IP DI BAWAH INI DENGAN IP VPS ADMIN (TEMPAT BOT BERJALAN) ⚠️
-# JANGAN GUNAKAN GITHUB JIKA PAKAI BOT ADMIN
+# IP VPS ADMIN (BOT)
 LICENSE_URL="http://129.226.206.227:3000/whitelist"
 
 # --- Konfigurasi Variable ---
@@ -387,19 +386,19 @@ function show_menu() {
     clear
     get_info
     echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
-    echo -e "${CYAN} │${WHITE}${BOLD}               WINTUNELING VPN                ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN} │${WHITE}${BOLD}               WINTUNELING VPN DASHBOARD                ${NC}${CYAN}│${NC}"
     echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
-    echo -e "${CYAN} ┌─────────────── ───[ SYSTEM INFO ]──────────────────────┐${NC}"
+    echo -e "${CYAN} ┌── [ SYSTEM INFO ] ─────────────────────────────────────┐${NC}"
     echo -e "${CYAN} │${NC} ${GRAY}OS      :${NC} $OS"
     echo -e "${CYAN} │${NC} ${GRAY}IP      :${NC} $IP"
     echo -e "${CYAN} │${NC} ${GRAY}ISP     :${NC} $ISP ($CITY)"
     echo -e "${CYAN} │${NC} ${GRAY}RAM     :${NC} $(draw_bar $ram_perc) $ram_perc% ($used_ram MB)"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN} ┌─────────────────────[ LICENSE ] ───────────────────────┐${NC}"
+    echo -e "${CYAN} ┌── [ LICENSE ] ─────────────────────────────────────────┐${NC}"
     echo -e "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}$CLIENT${NC}"
     echo -e "${CYAN} │${NC} ${GRAY}Expired :${NC} $EXP_SCRIPT"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN} ┌────────────────── [ VPN STATUS ]───────────────────────┐${NC}"
+    echo -e "${CYAN} ┌── [ VPN STATUS ] ──────────────────────────────────────┐${NC}"
     echo -e "${CYAN} │${NC} ${GRAY}Domain  :${NC} ${GREEN}$DOMAIN${NC}"
     echo -e "${CYAN} │${NC} ${GRAY}Status  :${NC} $STATUS        ${GRAY}Users :${NC} ${WHITE}$TOTAL_USER${NC}"
     echo -e "${CYAN} │${NC} ${GRAY}API Key :${NC} $API_STAT"
@@ -413,7 +412,7 @@ function show_menu() {
     echo -e " ${CYAN}[ SYSTEM & BACKUP ]${NC}"
     echo -e " ${WHITE}[7]${NC} Check API Key       ${WHITE}[8]${NC} Restart Service"
     echo -e " ${WHITE}[9]${NC} Backup Now          ${WHITE}[10]${NC} Restore Data"
-    echo -e " ${WHITE}[11]${NC} Auto Backup         ${WHITE}[12]${NC} Notif Telegram"
+    echo -e " ${WHITE}[11]${NC} Auto Backup         ${WHITE}[12]${NC} Reset Telegram"
     echo -e ""
     echo -e "                         ${RED}[0] Exit${NC}"
     echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
@@ -465,10 +464,9 @@ function auto_backup_setup() {
     fi
     hh=$(echo $jam | cut -d: -f1)
     mm=$(echo $jam | cut -d: -f2)
-    cat << EOF > /etc/cron.d/zivpn_autobackup
-# Auto Backup Wintunneling
-$mm $hh * * * root /usr/local/bin/backup-tg
-EOF
+    # FIX: GUNAKAN ECHO UNTUK MENGHINDARI NESTED EOF
+    echo "# Auto Backup Wintunneling" > /etc/cron.d/zivpn_autobackup
+    echo "$mm $hh * * * root /usr/local/bin/backup-tg" >> /etc/cron.d/zivpn_autobackup
     service cron restart
     echo -e "${GREEN}✅ Auto Backup Diatur pada jam $jam${NC}"
     read -p "Press Enter..."
