@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-# WINTUNELING VPN - CLIENT INSTALLER (FINAL FIXED)
+# WINTUNELING VPN - CLIENT INSTALLER (FIXED VERSION)
 # ============================================================
 
-# IP VPS ADMIN (BOT)
+# ⚠️ GANTI IP DI BAWAH INI DENGAN IP VPS ADMIN ANDA ⚠️
 LICENSE_URL="http://129.226.206.227:3000/whitelist"
 
 # --- Konfigurasi Variable ---
@@ -27,7 +27,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-# 1. CEK LICENSE & INFO CLIENT
+# 1. CEK LICENSE
 clear
 echo -e "${YELLOW}[INFO] Checking License Wintunneling...${NC}"
 MYIP=$(curl -s ipv4.icanhazip.com)
@@ -41,7 +41,7 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
         echo -e "${RED}❌ LICENSE EXPIRED ($EXP_DATE) ❌${NC}"
-        echo -e "Silakan hubungi Admin t.me/WINTUNELINGVPNN untuk perpanjang."
+        echo -e "Silakan hubungi Admin t.me/WINTUNELINGVPNN."
         exit 1
     else
         echo -e "${GREEN}✅ License Valid! Welcome $CLIENT_NAME${NC}"
@@ -317,7 +317,8 @@ chmod +x $BACKUP_BIN
 # 7. MENU PREMIUM (DASHBOARD STYLE)
 echo -e "${CYAN}[6/7] Installing Script Menu...${NC}"
 
-cat << 'EOF' > $MENU_BIN
+# ⚠️ PERUBAHAN PENTING: Menggunakan 'END_OF_MENU' sebagai penanda akhir file
+cat << 'END_OF_MENU' > $MENU_BIN
 #!/bin/bash
 # WINTUNELING VPN MENU - DASHBOARD STYLE
 
@@ -412,7 +413,7 @@ function show_menu() {
     echo -e " ${CYAN}[ SYSTEM & BACKUP ]${NC}"
     echo -e " ${WHITE}[7]${NC} Check API Key       ${WHITE}[8]${NC} Restart Service"
     echo -e " ${WHITE}[9]${NC} Backup Now          ${WHITE}[10]${NC} Restore Data"
-    echo -e " ${WHITE}[11]${NC} Auto Backup         ${WHITE}[12]${NC} Reset Telegram"
+    echo -e " ${WHITE}[11]${NC} Auto Backup         ${WHITE}[12]${NC} Notif Telegram"
     echo -e ""
     echo -e "                         ${RED}[0] Exit${NC}"
     echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
@@ -459,12 +460,11 @@ function auto_backup_setup() {
         return
     fi
     read -p "Set Jam (Format HH:MM, contoh 00:00) : " jam
-    if [[ ! $jam =~ ^([0-1][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
+    if [[ ! $jam =~ ^[0-9][0-9]:[0-9][0-9]$ ]]; then
         echo -e "${RED}Format Salah!${NC}"; read -p "Enter..."; return
     fi
     hh=$(echo $jam | cut -d: -f1)
     mm=$(echo $jam | cut -d: -f2)
-    # FIX: GUNAKAN ECHO UNTUK MENGHINDARI NESTED EOF
     echo "# Auto Backup Wintunneling" > /etc/cron.d/zivpn_autobackup
     echo "$mm $hh * * * root /usr/local/bin/backup-tg" >> /etc/cron.d/zivpn_autobackup
     service cron restart
@@ -585,7 +585,11 @@ function sync_config() {
 }
 
 while true; do show_menu; done
-EOF
+END_OF_MENU
+# ============================================================
+# END OF MENU FILE GENERATION
+# ============================================================
+
 chmod +x $MENU_BIN
 
 # 8. FINISHING
