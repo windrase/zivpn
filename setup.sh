@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-# WINTUNELING VPN - PROFESSIONAL EDITION v2.1
+# WINTUNELING VPN - PROFESSIONAL EDITION v2.3 (FIX LAYOUT)
 # ============================================================
 
-# ⚠️ IP SERVER LICENSE (JANGAN DIHAPUS/UBAH)
+# ⚠️ IP SERVER LICENSE
 LICENSE_URL="http://129.226.206.227:3000/whitelist"
 
 # --- Konfigurasi Variable ---
@@ -20,14 +20,16 @@ MENU_BIN="/usr/local/bin/menu"
 BACKUP_BIN="/usr/local/bin/backup-tg"
 
 # --- Warna ---
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-BOLD='\033[1m'
+RED='\e[1;31m'
+GREEN='\e[1;32m'
+YELLOW='\e[1;33m'
+BLUE='\e[1;34m'
+PURPLE='\e[1;35m'
+CYAN='\e[1;36m'
+WHITE='\e[1;37m'
+NC='\e[0m'
+BOLD='\e[1m'
+GRAY='\e[90m'
 
 # 1. CEK LICENSE
 clear
@@ -242,7 +244,7 @@ rm $FILENAME
 EOF
 chmod +x $BACKUP_BIN
 
-# 7. MENU PREMIUM (PRO UPDATE)
+# 7. MENU PREMIUM (PROFESSIONAL & FIXED LAYOUT)
 echo -e "${CYAN}[6/7] Installing Script Menu...${NC}"
 
 cat << 'END_OF_MENU' > $MENU_BIN
@@ -275,21 +277,14 @@ function send_log() {
     fi
 }
 
-function draw_bar() {
-    local perc=$1
-    local size=10
-    local filled=$(printf "%.0f" $(echo "$perc * $size / 100" | bc))
-    local empty=$((size - filled))
-    printf "${PURPLE}"
-    for ((i=0; i<filled; i++)); do printf "█"; done
-    printf "${GRAY}"
-    for ((i=0; i<empty; i++)); do printf "░"; done
-    printf "${NC}"
-}
-
 function get_info() {
     OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
+    # Potong string OS dan ISP agar tidak merusak layout
+    OS=$(echo "$OS" | cut -c 1-15)
+    
     ISP=$(curl -s ip-api.com/json | jq -r .isp)
+    ISP=$(echo "$ISP" | cut -c 1-15)
+    
     IP=$(curl -s ipv4.icanhazip.com)
     CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "Unknown")
     EXP_DATE=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Unknown")
@@ -304,6 +299,7 @@ function get_info() {
     total_ram=$(free -m | awk 'NR==2{print $2}')
     used_ram=$(free -m | awk 'NR==2{print $3}')
     ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
+    
     cpu_usage=$(grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}' | awk '{printf("%.0f", $1)}')
     disk_usage=$(df -h / | awk 'NR==2 {print $5}')
     
@@ -322,29 +318,35 @@ function show_menu() {
     echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
     echo -e "${CYAN} │${WHITE}${BOLD}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
     echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
+    
     echo -e "${CYAN} ┌─────────────────────${WHITE} SYSTEM INFO ${CYAN}────────────────────┐${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}OS      :${NC} $(printf "%-15s" "$OS") ${GRAY}RAM  :${NC} $ram_perc% ($used_ram MB)   ${CYAN}│${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}IP      :${NC} $(printf "%-15s" "$IP") ${GRAY}CPU  :${NC} $cpu_usage%             ${CYAN}│${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}ISP     :${NC} $(printf "%-15s" "$ISP") ${GRAY}DISK :${NC} $disk_usage             ${CYAN}│${NC}"
+    printf "${CYAN} │${NC} ${GRAY}OS   :${NC} %-15s ${GRAY}RAM  :${NC} %-4s %-12s ${CYAN}│${NC}\n" "$OS" "$ram_perc%" "($used_ram MB)"
+    printf "${CYAN} │${NC} ${GRAY}IP   :${NC} %-15s ${GRAY}CPU  :${NC} %-17s ${CYAN}│${NC}\n" "$IP" "$cpu_usage%"
+    printf "${CYAN} │${NC} ${GRAY}ISP  :${NC} %-15s ${GRAY}DISK :${NC} %-17s ${CYAN}│${NC}\n" "$ISP" "$disk_usage"
     echo -e "${CYAN} ├────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}BW Today:${NC} ${GREEN}↓$RX_TODAY ${YELLOW}↑$TX_TODAY${NC}   ${GRAY}BW Month:${NC} ${GREEN}↓$RX_MONTH ${YELLOW}↑$TX_MONTH${NC}   ${CYAN}│${NC}"
+    
+    # Bandwidth - Split into 2 lines for tidiness
+    printf "${CYAN} │${NC} ${GRAY}BW Today :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_TODAY" "$TX_TODAY"
+    printf "${CYAN} │${NC} ${GRAY}BW Month :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_MONTH" "$TX_MONTH"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
     
     echo -e "${CYAN} ┌──────────────────────${WHITE} LICENSE ${CYAN}────────────────────────┐${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}$(printf "%-20s" "$CLIENT")${NC} ${CYAN}│${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}Expired :${NC} ${WHITE}$EXP_DATE${NC} (${GREEN}$DAYS_LEFT Hari${NC})        ${CYAN}│${NC}"
+    printf "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}%-43s${NC} ${CYAN}│${NC}\n" "$CLIENT"
+    printf "${CYAN} │${NC} ${GRAY}Expired :${NC} ${WHITE}%-10s${NC} (${GREEN}%-4s Hari${NC})                      ${CYAN}│${NC}\n" "$EXP_DATE" "$DAYS_LEFT"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
     
     echo -e "${CYAN} ┌──────────────────────${WHITE} ACCOUNT ${CYAN}────────────────────────┐${NC}"
-    echo -e " ${WHITE}[1]${NC} Create Account      ${WHITE}[2]${NC} Create Trial"
-    echo -e " ${WHITE}[3]${NC} Renew Account       ${WHITE}[4]${NC} Delete Account"
-    echo -e " ${WHITE}[5]${NC} List Users          ${WHITE}[6]${NC} Change Domain"
-    echo -e ""
+    printf "${CYAN} │${NC} ${WHITE}[1]${NC} %-23s ${WHITE}[2]${NC} %-23s ${CYAN}│${NC}\n" "Create Account" "Create Trial"
+    printf "${CYAN} │${NC} ${WHITE}[3]${NC} %-23s ${WHITE}[4]${NC} %-23s ${CYAN}│${NC}\n" "Renew Account" "Delete Account"
+    printf "${CYAN} │${NC} ${WHITE}[5]${NC} %-23s ${WHITE}[6]${NC} %-23s ${CYAN}│${NC}\n" "List Users" "Change Domain"
+    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+
     echo -e "${CYAN} ┌──────────────────────${WHITE} SETTINGS ${CYAN}───────────────────────┐${NC}"
-    echo -e " ${WHITE}[7]${NC} Restart Service     ${WHITE}[8]${NC} Setup Telegram"
-    echo -e " ${WHITE}[9]${NC} Backup Now          ${WHITE}[10]${NC} Auto Backup"
-    echo -e " ${WHITE}[11]${NC} Restore Data"
-    echo -e ""
+    printf "${CYAN} │${NC} ${WHITE}[7]${NC} %-23s ${WHITE}[8]${NC} %-23s ${CYAN}│${NC}\n" "Restart Service" "Setup Telegram"
+    printf "${CYAN} │${NC} ${WHITE}[9]${NC} %-23s ${WHITE}[10]${NC} %-22s ${CYAN}│${NC}\n" "Backup Now" "Auto Backup"
+    printf "${CYAN} │${NC} ${WHITE}[11]${NC} %-49s ${CYAN}│${NC}\n" "Restore Data"
+    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+    
     echo -e "                         ${RED}[0] Exit${NC}"
     echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
     read -p " Select Option: " opt
@@ -373,14 +375,14 @@ function sync_config() {
 
 function create_user() {
     echo -e "\n${CYAN}┌── [ CREATE ACCOUNT ]${NC}"
-    read -p "│ Password : " pass
+    read -p "│ Account Name : " pass
     user=$pass 
     if grep -q "^$user:" $DB; then echo -e "│ ${RED}Account Exists!${NC}"; read -p "└ Enter..."; return; fi
     read -p "│ Active Days  : " days
     exp=$(($(date +%s) + days * 86400))
     echo "$user:$pass:$exp" >> $DB
     sync_config
-    MSG="🔥 *NEW ACCOUNT CREATED*
+    MSG="🔥 *ACCOUNT CREATED*
 ━━━━━━━━━━━━━━━━━━━━
 🔰 Domain : \`$DOMAIN\`
 👤 Password : \`$pass\`
@@ -434,7 +436,7 @@ function delete_user() {
     done < $DB
     echo -e "${CYAN} └──────┴────────────────────────┴──────────────────┘${NC}"
     echo -e " ${RED}[0] Cancel${NC}"
-    read -p " Select Number to Delete: " num
+    read -p " Pilih Nomor Untuk Hapus: " num
     if [[ "$num" == "0" || -z "${user_list[$num]}" ]]; then return; fi
     target="${user_list[$num]}"
     grep -v "^$target:" $DB > $DB.tmp && mv $DB.tmp $DB
