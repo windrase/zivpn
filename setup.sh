@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-# WINTUNELING VPN - CLIENT INSTALLER (FIXED VERSION)
+# WINTUNELING VPN - PROFESSIONAL EDITION
 # ============================================================
 
-# ⚠️ GANTI IP DI BAWAH INI DENGAN IP VPS ADMIN ANDA ⚠️
+# ⚠️ GANTI IP DI BAWAH INI DENGAN IP VPS ADMIN (BOT) ANDA ⚠️
 LICENSE_URL="http://129.226.206.227:3000/whitelist"
 
 # --- Konfigurasi Variable ---
@@ -29,7 +29,7 @@ BOLD='\033[1m'
 
 # 1. CEK LICENSE
 clear
-echo -e "${YELLOW}[INFO] Checking License Wintunneling...${NC}"
+echo -e "${YELLOW}[INFO] Checking License...${NC}"
 MYIP=$(curl -s ipv4.icanhazip.com)
 LICENSE_DATA=$(curl -s --connect-timeout 5 "$LICENSE_URL")
 
@@ -41,7 +41,7 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
         echo -e "${RED}❌ LICENSE EXPIRED ($EXP_DATE) ❌${NC}"
-        echo -e "Silakan hubungi Admin t.me/WINTUNELINGVPNN."
+        echo -e "Hubungi Admin: t.me/WINTUNELINGVPNN"
         exit 1
     else
         echo -e "${GREEN}✅ License Valid! Welcome $CLIENT_NAME${NC}"
@@ -51,8 +51,8 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
         sleep 2
     fi
 else
-    echo -e "${RED}❌ AKSES DITOLAK! IP ($MYIP) TIDAK TERDAFTAR ❌${NC}"
-    echo -e "Hubungi Admin untuk Register IP."
+    echo -e "${RED}❌ IP TIDAK TERDAFTAR ❌${NC}"
+    echo -e "Silakan hubungi Admin untuk registrasi."
     exit 1
 fi
 
@@ -63,20 +63,38 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl zip unzip cron net-tools lsb-release gnupg vnstat bc >/dev/null 2>&1
 
-# Setup Vnstat
 systemctl enable vnstat
 systemctl start vnstat
 
-# Install Node.js
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - >/dev/null 2>&1
     apt-get install -y nodejs >/dev/null 2>&1
 fi
 
-# 3. INSTALL ZIVPN CORE
+# 3. SETUP DOMAIN & CORE
 echo -e "${CYAN}[2/7] Installing Core...${NC}"
 systemctl stop $SERVICE_VPN >/dev/null 2>&1
 mkdir -p $DIR
+
+# --- WAJIB ISI DOMAIN (MANDATORY) ---
+clear
+echo -e "${CYAN}===================================================${NC}"
+echo -e "${YELLOW}           KONFIGURASI DOMAIN         ${NC}"
+echo -e "${CYAN}===================================================${NC}"
+echo -e "Silakan masukkan Domain/Subdomain untuk server ini."
+echo -e "Pastikan domain sudah diarahkan (A Record) ke IP: $MYIP"
+echo -e ""
+while true; do
+    read -p "Input Domain : " DOMAIN_INPUT
+    if [ -z "$DOMAIN_INPUT" ]; then
+        echo -e "${RED}❌ Domain tidak boleh kosong!${NC}"
+    else
+        echo -e "${GREEN}✅ Domain diset ke: $DOMAIN_INPUT${NC}"
+        break
+    fi
+done
+sleep 1
+# ------------------------------------
 
 ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
@@ -89,8 +107,9 @@ else
 fi
 chmod +x $BIN
 
+# Generate Cert
 openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
-    -subj "/C=ID/ST=VPN/L=VPN/O=WINTUNNELING/CN=$MYIP" \
+    -subj "/C=ID/ST=VPN/L=VPN/O=WINTUNNELING/CN=$DOMAIN_INPUT" \
     -keyout "$DIR/zivpn.key" -out "$DIR/zivpn.crt" >/dev/null 2>&1
 
 if [ ! -f "$CONFIG" ]; then
@@ -295,7 +314,6 @@ CITY=$(curl -s ip-api.com/json | jq -r .city)
 IP=$(curl -s ipv4.icanhazip.com)
 FILENAME="backup-$IP-$DATE.zip"
 
-# Zip Data Penting
 zip -r /root/$FILENAME /etc/zivpn/user.db /etc/zivpn/config.json /etc/zivpn/apikey /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key > /dev/null 2>&1
 
 CAPTION="🤖 *AUTO BACKUP FILE*
@@ -307,20 +325,17 @@ CAPTION="🤖 *AUTO BACKUP FILE*
 🏙️ City  : \`$CITY\`
 ━━━━━━━━━━━━━━━━━━━━"
 
-# Kirim ke Telegram
 curl -s -F chat_id="$TG_ID" -F document=@"/root/$FILENAME" -F caption="$CAPTION" -F parse_mode="Markdown" "https://api.telegram.org/bot$TG_TOKEN/sendDocument" > /dev/null
-
 rm /root/$FILENAME
 EOF
 chmod +x $BACKUP_BIN
 
-# 7. MENU PREMIUM (DASHBOARD STYLE)
+# 7. MENU PREMIUM (PROFESSIONAL UI)
 echo -e "${CYAN}[6/7] Installing Script Menu...${NC}"
 
-# ⚠️ PERUBAHAN PENTING: Menggunakan 'END_OF_MENU' sebagai penanda akhir file
 cat << 'END_OF_MENU' > $MENU_BIN
 #!/bin/bash
-# WINTUNELING VPN MENU - DASHBOARD STYLE
+# WINTUNELING VPN MENU - PRO EDITION
 
 DIR="/etc/zivpn"
 DB="$DIR/user.db"
@@ -329,7 +344,6 @@ API_KEY_FILE="$DIR/apikey"
 TG_CONFIG="$DIR/tg_backup.conf"
 SERVICE="zivpn"
 
-# Colors
 RED='\e[1;31m'
 GREEN='\e[1;32m'
 YELLOW='\e[1;33m'
@@ -362,9 +376,7 @@ function get_info() {
     EXP_SCRIPT=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Unknown")
     DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt | sed -n 's/^.*CN = //p')
     [ -z "$DOMAIN" ] && DOMAIN="$IP"
-    TOTAL_USER=$(wc -l < $DB 2>/dev/null || echo 0)
     
-    # RAM
     total_ram=$(free -m | awk 'NR==2{print $2}')
     used_ram=$(free -m | awk 'NR==2{print $3}')
     ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
@@ -375,10 +387,6 @@ function get_info() {
         STATUS="${RED}DOWN${NC}"
     fi
     
-    TX_TODAY=$(vnstat -d --oneline | awk -F';' '{print $6}' || echo "N/A")
-    TX_MONTH=$(vnstat -m --oneline | awk -F';' '{print $11}' || echo "N/A")
-    
-    # API Status
     API_KEY=$(cat $API_KEY_FILE)
     if [ -n "$API_KEY" ]; then API_STAT="${GREEN}ON${NC}"; else API_STAT="${RED}OFF${NC}"; fi
 }
@@ -387,33 +395,32 @@ function show_menu() {
     clear
     get_info
     echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
-    echo -e "${CYAN} │${WHITE}${BOLD}               WINTUNELING VPN DASHBOARD                ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN} │${WHITE}${BOLD}               WINTUNELING ZIVPN                ${NC}${CYAN}│${NC}"
     echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
-    echo -e "${CYAN} ┌── [ SYSTEM INFO ] ─────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}OS      :${NC} $OS"
-    echo -e "${CYAN} │${NC} ${GRAY}IP      :${NC} $IP"
-    echo -e "${CYAN} │${NC} ${GRAY}ISP     :${NC} $ISP ($CITY)"
-    echo -e "${CYAN} │${NC} ${GRAY}RAM     :${NC} $(draw_bar $ram_perc) $ram_perc% ($used_ram MB)"
+    echo -e "${CYAN} ┌─────────────────────${WHITE} SYSTEM INFO ${CYAN}────────────────────┐${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}OS      :${NC} $(printf "%-39s" "$OS") ${CYAN}│${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}IP      :${NC} $(printf "%-39s" "$IP") ${CYAN}│${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}ISP     :${NC} $(printf "%-39s" "$ISP") ${CYAN}│${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}RAM     :${NC} $(draw_bar $ram_perc) $ram_perc%                        ${CYAN}│${NC}"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN} ┌── [ LICENSE ] ─────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}$CLIENT${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}Expired :${NC} $EXP_SCRIPT"
+    echo -e "${CYAN} ┌───────────────────────${WHITE} CLIENT ${CYAN}───────────────────────┐${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}$(printf "%-39s" "$CLIENT")${NC} ${CYAN}│${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Expired :${NC} $(printf "%-39s" "$EXP_SCRIPT") ${CYAN}│${NC}"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN} ┌── [ VPN STATUS ] ──────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}Domain  :${NC} ${GREEN}$DOMAIN${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}Status  :${NC} $STATUS        ${GRAY}Users :${NC} ${WHITE}$TOTAL_USER${NC}"
-    echo -e "${CYAN} │${NC} ${GRAY}API Key :${NC} $API_STAT"
+    echo -e "${CYAN} ┌──────────────────────${WHITE} VPN STATUS ${CYAN}──────────────────────┐${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Domain  :${NC} ${GREEN}$(printf "%-39s" "$DOMAIN")${NC} ${CYAN}│${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Status  :${NC} $(printf "%-12s" "$STATUS")        ${GRAY}API Key :${NC} $(printf "%-10s" "$API_STAT") ${CYAN}│${NC}"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
     echo -e ""
-    echo -e " ${CYAN}[ MENU MANAGEMENT ]${NC}"
+    echo -e "${CYAN} ┌──────────────────────${WHITE} MENU ${CYAN}──────────────────────┐${NC}"
     echo -e " ${WHITE}[1]${NC} Create Account      ${WHITE}[2]${NC} Create Trial"
     echo -e " ${WHITE}[3]${NC} Renew Account       ${WHITE}[4]${NC} Delete Account"
     echo -e " ${WHITE}[5]${NC} List Users          ${WHITE}[6]${NC} Change Domain"
     echo -e ""
-    echo -e " ${CYAN}[ SYSTEM & BACKUP ]${NC}"
+     echo -e "${CYAN} ┌──────────────────────${WHITE} SYSTEM & BACKUP ${CYAN}──────────────────────┐${NC}"
     echo -e " ${WHITE}[7]${NC} Check API Key       ${WHITE}[8]${NC} Restart Service"
     echo -e " ${WHITE}[9]${NC} Backup Now          ${WHITE}[10]${NC} Restore Data"
-    echo -e " ${WHITE}[11]${NC} Auto Backup         ${WHITE}[12]${NC} Notif Telegram"
+    echo -e " ${WHITE}[11]${NC} Auto Backup        ${WHITE}[12]${NC} Setup Telegram Notif"
     echo -e ""
     echo -e "                         ${RED}[0] Exit${NC}"
     echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
@@ -430,20 +437,58 @@ function show_menu() {
         9) backup_data ;;
         10) restore_data ;;
         11) auto_backup_setup ;;
-        12) reset_tg_config ;;
+        12) setup_telegram_notif ;;
         0) exit 0 ;;
     esac
+}
+
+function list_user() {
+    clear
+    echo -e "${CYAN} ┌──────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN} │${WHITE}                 LIST USER ACCOUNT                ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN} ├────────────────────────┬─────────────────────────┤${NC}"
+    echo -e "${CYAN} │${WHITE}        PASSWORD        ${NC}${CYAN}│${WHITE}       EXPIRED       ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN} ├────────────────────────┼─────────────────────────┤${NC}"
+    
+    while IFS=: read -r user pass exp; do
+        exp_date=$(date -d @$exp "+%d-%m-%Y")
+        # Menampilkan Password dan Expired saja (Username dihilangkan sesuai request)
+        printf "${CYAN} │${YELLOW} %-22s ${CYAN}│${GREEN} %-23s ${CYAN}│${NC}\n" "$pass" "$exp_date"
+    done < $DB
+    
+    echo -e "${CYAN} └────────────────────────┴─────────────────────────┘${NC}"
+    read -p " Press Enter to return..."
+}
+
+function setup_telegram_notif() {
+    clear
+    echo -e "${CYAN}[ SETUP TELEGRAM NOTIFICATION ]${NC}"
+    if [ -f "$TG_CONFIG" ]; then
+        echo -e "${GREEN}Telegram sudah terkonfigurasi.${NC}"
+        read -p "Ingin konfigurasi ulang? [y/n]: " ans
+        if [[ "$ans" == "y" ]]; then rm "$TG_CONFIG"; else return; fi
+    fi
+    echo -e "${YELLOW}Masukkan Data Bot Telegram Anda:${NC}"
+    read -p "Bot Token : " token
+    read -p "Chat ID   : " chatid
+    if [[ -z "$token" || -z "$chatid" ]]; then
+        echo -e "${RED}Gagal! Data tidak boleh kosong.${NC}"
+    else
+        echo "TG_TOKEN='$token'" > $TG_CONFIG
+        echo "TG_ID='$chatid'" >> $TG_CONFIG
+        echo -e "${GREEN}✅ Konfigurasi Telegram Disimpan!${NC}"
+    fi
+    read -p "Press Enter..."
 }
 
 function backup_data() {
     clear
     echo -e "${CYAN}[ BACKUP DATA TO TELEGRAM ]${NC}"
     if [ ! -f "$TG_CONFIG" ]; then
-        echo -e "${YELLOW}Telegram Config Not Found!${NC}"
-        read -p "Enter Bot Token : " token
-        read -p "Enter Chat ID   : " chatid
-        echo "TG_TOKEN='$token'" > $TG_CONFIG
-        echo "TG_ID='$chatid'" >> $TG_CONFIG
+        echo -e "${RED}Telegram belum disetup!${NC}"
+        echo -e "Silakan pilih menu [12] Setup Telegram Notif terlebih dahulu."
+        read -p "Press Enter..."
+        return
     fi
     echo -e "${YELLOW}Sending Backup...${NC}"
     /usr/local/bin/backup-tg
@@ -455,11 +500,9 @@ function auto_backup_setup() {
     clear
     echo -e "${CYAN}[ AUTO BACKUP SETTING ]${NC}"
     if [ ! -f "$TG_CONFIG" ]; then
-        echo -e "${RED}Please Setup 'Backup Now' [Menu 9] first!${NC}"
-        read -p "Enter..."
-        return
+        echo -e "${RED}Telegram belum disetup! Pilih menu [12].${NC}"; read -p "Enter..."; return
     fi
-    read -p "Set Jam (Format HH:MM, contoh 00:00) : " jam
+    read -p "Set Jam (Format HH:MM, ex: 00:00) : " jam
     if [[ ! $jam =~ ^[0-9][0-9]:[0-9][0-9]$ ]]; then
         echo -e "${RED}Format Salah!${NC}"; read -p "Enter..."; return
     fi
@@ -473,20 +516,12 @@ function auto_backup_setup() {
 }
 
 function reset_tg_config() {
-    clear
-    echo -e "${CYAN}[ RESET TELEGRAM CONFIG ]${NC}"
-    if [ -f "$TG_CONFIG" ]; then
-        rm "$TG_CONFIG"
-        echo -e "${GREEN}✅ Konfigurasi Telegram berhasil direset!${NC}"
-    else
-        echo -e "${RED}⚠️ Belum ada konfigurasi.${NC}"
-    fi
-    read -p "Press Enter..."
+    clear; echo -e "${CYAN}[ RESET TELEGRAM ]${NC}"
+    rm "$TG_CONFIG"; echo -e "${GREEN}✅ Config Reset.${NC}"; read -p "Enter..."
 }
 
 function restore_data() {
-    clear
-    echo -e "${CYAN}[ RESTORE DATA ]${NC}"
+    clear; echo -e "${CYAN}[ RESTORE DATA ]${NC}"
     read -p "Link File Backup : " url
     if [ -z "$url" ]; then echo -e "${RED}URL Kosong!${NC}"; sleep 1; return; fi
     wget -O /root/backup.zip "$url" > /dev/null 2>&1
@@ -498,7 +533,7 @@ function restore_data() {
     else
         echo -e "${RED}❌ Failed Download!${NC}"
     fi
-    read -p "Press Enter..."
+    read -p "Enter..."
 }
 
 function create_user() {
@@ -511,7 +546,9 @@ function create_user() {
     echo "$user:$pass:$exp" >> $DB
     sync_config
     echo -e "│\n│ ${GREEN}SUCCESS! Account Created.${NC}"
-    echo -e "│ Domain : $DOMAIN\n│ User   : $user\n│ Pass   : $pass\n│ Exp    : $(date -d @$exp "+%d %b %Y")"
+    echo -e "│ Domain : $DOMAIN"
+    echo -e "│ Pass   : $pass"
+    echo -e "│ Exp    : $(date -d @$exp "+%d %b %Y")"
     echo -e "${CYAN}└─────────────────────────${NC}"
     read -p "Press Enter..."
 }
@@ -525,7 +562,9 @@ function trial_user() {
     echo "$user:$pass:$exp" >> $DB
     sync_config
     echo -e "│\n│ ${GREEN}SUCCESS! Trial Created.${NC}"
-    echo -e "│ Domain : $DOMAIN\n│ User   : $user\n│ Pass   : $pass\n│ Exp    : $mins Minutes"
+    echo -e "│ Domain : $DOMAIN"
+    echo -e "│ Pass   : $pass"
+    echo -e "│ Exp    : $mins Minutes"
     echo -e "${CYAN}└─────────────────────────${NC}"
     read -p "Press Enter..."
 }
@@ -553,14 +592,6 @@ function delete_user() {
     sync_config; echo -e "${GREEN}Deleted.${NC}"; read -p "Enter..."
 }
 
-function list_user() {
-    clear; echo -e "${CYAN}USER LIST${NC}"; echo "---------"
-    while IFS=: read -r u p e; do
-        echo -e "$u | Exp: $(date -d @$e "+%F")"
-    done < $DB
-    echo "---------"; read -p "Enter..."
-}
-
 function change_domain() {
     echo -e "\n${CYAN}[ CHANGE DOMAIN ]${NC}"
     read -p "New Domain: " d
@@ -569,12 +600,9 @@ function change_domain() {
 }
 
 function show_api() {
-    clear
-    echo -e "${CYAN}┌── [ API CONFIG ]${NC}"
+    clear; echo -e "${CYAN}┌── [ API CONFIG ]${NC}"
     echo -e "│ Key  : ${YELLOW}$(cat $API_KEY_FILE)${NC}"
-    echo -e "│ Port : ${YELLOW}5888${NC}"
-    echo -e "${CYAN}└─────────────────${NC}"
-    read -p "Enter..."
+    echo -e "│ Port : ${YELLOW}5888${NC}"; echo -e "${CYAN}└─────────────────${NC}"; read -p "Enter..."
 }
 
 function sync_config() {
@@ -587,7 +615,7 @@ function sync_config() {
 while true; do show_menu; done
 END_OF_MENU
 # ============================================================
-# END OF MENU FILE GENERATION
+# END OF MENU
 # ============================================================
 
 chmod +x $MENU_BIN
