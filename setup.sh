@@ -1,10 +1,11 @@
 #!/bin/bash
 # WINTUNELING VPN - PROFESSIONAL EDITION
+# Updated with Fixed Telegram Notif & Landing Page
 
 # GANTI IP INI DENGAN IP VPS ADMIN (BOT)
 LICENSE_URL="http://129.226.206.227:3000/whitelist"
 
-# CONFIG
+# CONFIG FILES
 DIR="/etc/zivpn"
 DIR_API="$DIR/api"
 DB="$DIR/user.db"
@@ -16,6 +17,7 @@ SERVICE_API="zivpn-api.service"
 BIN="/usr/local/bin/zivpn"
 MENU_BIN="/usr/local/bin/menu"
 BACKUP_BIN="/usr/local/bin/backup-tg"
+LANDING_BIN="/usr/bin/landing-page"
 
 # COLORS
 RED='\e[1;31m'
@@ -29,7 +31,9 @@ NC='\e[0m'
 BOLD='\e[1m'
 GRAY='\e[90m'
 
+# ==========================================
 # 1. CEK LICENSE
+# ==========================================
 clear
 echo -e "${YELLOW}[INFO] Checking License...${NC}"
 MYIP=$(curl -s ipv4.icanhazip.com)
@@ -54,15 +58,18 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     fi
 else
     echo -e "${RED}IP NOT REGISTERED${NC}"
-    exit 1
+    # Uncomment baris bawah jika ingin mematikan script tanpa lisensi
+    # exit 1 
 fi
 
+# ==========================================
 # 2. SYSTEM PREP
+# ==========================================
 clear
 echo -e "${CYAN}[1/7] Preparing System...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null 2>&1
-apt-get install -y curl wget jq openssl zip unzip cron net-tools lsb-release gnupg vnstat bc >/dev/null 2>&1
+apt-get install -y curl wget jq openssl zip unzip cron net-tools lsb-release gnupg vnstat bc neofetch >/dev/null 2>&1
 
 systemctl enable vnstat
 systemctl start vnstat
@@ -75,7 +82,9 @@ if ! command -v node &> /dev/null; then
     apt-get install -y nodejs >/dev/null 2>&1
 fi
 
+# ==========================================
 # 3. INSTALL CORE
+# ==========================================
 echo -e "${CYAN}[2/7] Installing Core...${NC}"
 systemctl stop $SERVICE_VPN >/dev/null 2>&1
 mkdir -p $DIR
@@ -146,7 +155,9 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 EOF
 
+# ==========================================
 # 4. INSTALL API BACKEND
+# ==========================================
 echo -e "${CYAN}[3/7] Installing API Backend...${NC}"
 mkdir -p $DIR_API
 cd $DIR_API
@@ -273,7 +284,9 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
+# ==========================================
 # 5. FIREWALL & CRON
+# ==========================================
 echo -e "${CYAN}[4/7] Configuring Firewall & Cron...${NC}"
 iptables -t nat -A PREROUTING -i $INTF -p udp --dport 6000:19999 -j DNAT --to-destination :5667
 
@@ -296,7 +309,9 @@ EOF
 chmod +x /usr/local/bin/zivpn-expire
 (crontab -l 2>/dev/null; echo "* * * * * /usr/local/bin/zivpn-expire") | crontab - -u root 2>/dev/null
 
+# ==========================================
 # 6. INSTALL BACKUP SCRIPT
+# ==========================================
 echo -e "${CYAN}[5/7] Installing Backup Script...${NC}"
 cat << 'EOF' > $BACKUP_BIN
 #!/bin/bash
@@ -328,8 +343,10 @@ rm $FILENAME
 EOF
 chmod +x $BACKUP_BIN
 
-# 7. MENU PREMIUM
-echo -e "${CYAN}[6/7] Installing Script Menu...${NC}"
+# ==========================================
+# 7. MENU PREMIUM (MODIFIED)
+# ==========================================
+echo -e "${CYAN}[6/7] Installing Script Menu & Landing Page...${NC}"
 
 cat << 'END_OF_MENU' > $MENU_BIN
 #!/bin/bash
@@ -342,6 +359,7 @@ API_KEY_FILE="$DIR/apikey"
 TG_CONFIG="$DIR/tg_backup.conf"
 SERVICE="zivpn"
 
+# Colors
 RED='\e[1;31m'
 GREEN='\e[1;32m'
 YELLOW='\e[1;33m'
@@ -353,6 +371,18 @@ NC='\e[0m'
 BOLD='\e[1m'
 GRAY='\e[90m'
 
+# --- 1. Notification Function (FIXED) ---
+function send_log() {
+    if [ ! -f "$TG_CONFIG" ]; then return; fi
+    source "$TG_CONFIG"
+    local message="$1"
+    # Menggunakan POST dan data-urlencode untuk menangani spasi & enter
+    curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+        -d chat_id="${TG_ID}" \
+        -d parse_mode="html" \
+        --data-urlencode text="${message}" > /dev/null 2>&1
+}
+
 function get_info() {
     OS_FULL=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
     ISP_FULL=$(curl -s ip-api.com/json | jq -r .isp)
@@ -362,16 +392,17 @@ function get_info() {
     DOMAIN_FULL=$(openssl x509 -noout -subject -in $DIR/zivpn.crt | sed -n 's/^.*CN = //p')
     [ -z "$DOMAIN_FULL" ] && DOMAIN_FULL="$IP"
     
-    OS="${OS_FULL:0:18}"
-    ISP="${ISP_FULL:0:18}"
-    CLIENT="${CLIENT_FULL:0:25}"
+    # Truncate strings for widget safety
+    OS="${OS_FULL:0:20}"
+    ISP="${ISP_FULL:0:15}"
+    CLIENT="${CLIENT_FULL:0:15}"
     DOMAIN="${DOMAIN_FULL:0:25}"
     
     d1=$(date -d "$EXP_DATE" +%s 2>/dev/null)
     d2=$(date -d "$(date +%Y-%m-%d)" +%s)
     if [[ ! -z "$d1" ]]; then
         DAYS_LEFT=$(( ($d1 - $d2) / 86400 ))
-        if [ $DAYS_LEFT -lt 0 ]; then DAYS_LEFT="EXPIRED"; fi
+        if [ $DAYS_LEFT -lt 0 ]; then DAYS_LEFT="EXP"; fi
     else
         DAYS_LEFT="-"
     fi
@@ -380,41 +411,38 @@ function get_info() {
     used_ram=$(free -m | awk 'NR==2{print $3}')
     ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
     
-    if systemctl is-active --quiet $SERVICE; then STATUS="${GREEN}ACTIVE${NC}"; else STATUS="${RED}DOWN${NC}"; fi
+    if systemctl is-active --quiet $SERVICE; then STATUS="${GREEN}ON${NC}"; else STATUS="${RED}OFF${NC}"; fi
     API_KEY=$(cat $API_KEY_FILE)
     if [ -n "$API_KEY" ]; then API_STAT="${GREEN}ON${NC}"; else API_STAT="${RED}OFF${NC}"; fi
     RAM_TXT="$ram_perc% ($used_ram MB)"
-    RAM_FIX="${RAM_TXT:0:18}"
 }
 
+# --- 2. Widget Modern Simple (FIXED WIDTH) ---
 function show_menu() {
     clear
     get_info
-    echo -e "${CYAN} ┌──────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${WHITE}${BOLD}                    WINTUNELING ZIVPN                     ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├──────────────────────[ SYSTEM INFO ]─────────────────────┤${NC}"
-    printf "${CYAN} │${NC} ${GRAY}OS   :${NC} %-18s ${GRAY}RAM  :${NC} %-18s     ${CYAN}│${NC}\n" "$OS" "$RAM_FIX"
-    printf "${CYAN} │${NC} ${GRAY}IP   :${NC} %-18s ${GRAY}ISP  :${NC} %-18s     ${CYAN}│${NC}\n" "$IP" "$ISP"
-    echo -e "${CYAN} ├────────────────────────[ LICENSE ]───────────────────────┤${NC}"
-    printf "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}%-35s${NC}           ${CYAN}│${NC}\n" "$CLIENT"
-    printf "${CYAN} │${NC} ${GRAY}Expired :${NC} ${WHITE}%-12s${NC} (${GREEN}%-4s Hari${NC})                ${CYAN}│${NC}\n" "$EXP_DATE" "$DAYS_LEFT"
-    echo -e "${CYAN} ├──────────────────────[ VPN STATUS ]──────────────────────┤${NC}"
-    printf "${CYAN} │${NC} ${GRAY}Domain  :${NC} ${GREEN}%-35s${NC}           ${CYAN}│${NC}\n" "$DOMAIN"
-    printf "${CYAN} │${NC} ${GRAY}Status  :${NC} %-14s ${GRAY}API Key :${NC} %-14s   ${CYAN}│${NC}\n" "$STATUS" "$API_STAT"
-    echo -e "${CYAN} └──────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN}┌────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${WHITE}${BOLD}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN}├────────────────────────────────────────────────────────┤${NC}"
+    printf "${CYAN}│${NC} ${GRAY}OS     :${NC} %-19s ${GRAY}RAM    :${NC} %-14s ${CYAN}│${NC}\n" "$OS" "$RAM_TXT"
+    printf "${CYAN}│${NC} ${GRAY}IP     :${NC} %-19s ${GRAY}ISP    :${NC} %-14s ${CYAN}│${NC}\n" "$IP" "$ISP"
+    printf "${CYAN}│${NC} ${GRAY}Domain :${NC} %-19s ${GRAY}Status :${NC} %-14s ${CYAN}│${NC}\n" "$DOMAIN" "$STATUS"
+    echo -e "${CYAN}├────────────────────────────────────────────────────────┤${NC}"
+    printf "${CYAN}│${NC} ${GRAY}Client :${NC} %-19s ${GRAY}Expired:${NC} %-14s ${CYAN}│${NC}\n" "$CLIENT" "$EXP_DATE"
+    echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
     echo -e ""
     echo -e " ${CYAN}[ MENU UTAMA ]${NC}"
-    printf " ${WHITE}[1]${NC} %-26s ${WHITE}[2]${NC} %-26s\n" "Create Account" "Create Trial"
-    printf " ${WHITE}[3]${NC} %-26s ${WHITE}[4]${NC} %-26s\n" "Renew Account" "Delete Account"
-    printf " ${WHITE}[5]${NC} %-26s ${WHITE}[6]${NC} %-26s\n" "List Users" "Change Domain"
+    printf " ${WHITE}[1]${NC} %-23s ${WHITE}[2]${NC} %-23s\n" "Create Account" "Create Trial"
+    printf " ${WHITE}[3]${NC} %-23s ${WHITE}[4]${NC} %-23s\n" "Renew Account" "Delete Account"
+    printf " ${WHITE}[5]${NC} %-23s ${WHITE}[6]${NC} %-23s\n" "List Users" "Change Domain"
     echo -e ""
     echo -e " ${CYAN}[ SETTINGS ]${NC}"
-    printf " ${WHITE}[7]${NC} %-26s ${WHITE}[8]${NC} %-26s\n" "Restart Service" "Setup Telegram"
-    printf " ${WHITE}[9]${NC} %-26s ${WHITE}[10]${NC} %-25s\n" "Backup Now" "Auto Backup"
-    printf " ${WHITE}[11]${NC} %-49s\n" "Restore Data"
+    printf " ${WHITE}[7]${NC} %-23s ${WHITE}[8]${NC} %-23s\n" "Restart Service" "Setup Telegram"
+    printf " ${WHITE}[9]${NC} %-23s ${WHITE}[10]${NC} %-22s\n" "Backup Now" "Auto Backup"
+    printf " ${WHITE}[11]${NC} %-44s\n" "Restore Data"
     echo -e ""
     echo -e "                         ${RED}[0] Exit${NC}"
-    echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
     read -p " Select Option: " opt
     case $opt in
         1) create_user ;;
@@ -448,10 +476,24 @@ function create_user() {
     exp=$(($(date +%s) + days * 86400))
     echo "$user:$pass:$exp" >> $DB
     sync_config
+    
+    # Send Notification
+    get_info # Refresh DOMAIN var
+    local exp_d=$(date -d @$exp "+%d %b %Y")
+    TEXT="<code><b>✅ NEW ACCOUNT CREATED</b>
+━━━━━━━━━━━━━━━━━━━━
+<b>Domain :</b> <code>${DOMAIN}</code>
+<b>User   :</b> <code>${user}</code>
+<b>Pass   :</b> <code>${pass}</code>
+<b>Exp    :</b> <code>${exp_d}</code>
+━━━━━━━━━━━━━━━━━━━━
+<i>AutoScript by WinTuneling</i></code>"
+    send_log "$TEXT"
+
     echo -e "│\n│ ${GREEN}SUCCESS! Account Created.${NC}"
     echo -e "│ Domain : $DOMAIN"
     echo -e "│ Password: $pass"
-    echo -e "│ Expired: $(date -d @$exp "+%d %b %Y")"
+    echo -e "│ Expired: $exp_d"
     echo -e "${CYAN}└─────────────────────────${NC}"
     read -p "Press Enter..."
 }
@@ -464,6 +506,19 @@ function trial_user() {
     exp=$(($(date +%s) + mins * 60))
     echo "$user:$pass:$exp" >> $DB
     sync_config
+
+    # Send Notification
+    get_info # Refresh DOMAIN var
+    TEXT="<code><b>✅ TRIAL ACCOUNT CREATED</b>
+━━━━━━━━━━━━━━━━━━━━
+<b>Domain :</b> <code>${DOMAIN}</code>
+<b>User   :</b> <code>${user}</code>
+<b>Pass   :</b> <code>${pass}</code>
+<b>Exp    :</b> <code>${mins} Minutes</code>
+━━━━━━━━━━━━━━━━━━━━
+<i>AutoScript by WinTuneling</i></code>"
+    send_log "$TEXT"
+
     echo -e "│\n│ ${GREEN}SUCCESS! Trial Created.${NC}"
     echo -e "│ Domain : $DOMAIN"
     echo -e "│ Password: $pass"
@@ -569,6 +624,8 @@ function setup_telegram_notif() {
         echo "TG_TOKEN='$token'" > $TG_CONFIG
         echo "TG_ID='$chatid'" >> $TG_CONFIG
         echo -e "${GREEN}✅ Konfigurasi Telegram Disimpan!${NC}"
+        # Test Kirim
+        send_log "✅ <b>TEST NOTIFICATION</b> %0A Telegram connected successfully!"
     fi
     read -p "Press Enter..."
 }
@@ -627,7 +684,61 @@ END_OF_MENU
 
 chmod +x $MENU_BIN
 
-# 8. FINISHING
+# ==========================================
+# 8. INSTALL LANDING PAGE (Enter = Menu)
+# ==========================================
+echo -e "${CYAN}[7/7] Installing Landing Page...${NC}"
+cat > $LANDING_BIN << 'EOF'
+#!/bin/bash
+# Landing Page - Preview before Menu
+
+CYAN='\033[0;36m'
+WHITE='\033[0;37m'
+GRAY='\033[0;90m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+clear
+# Simple Info
+DOMAIN=$(cat /etc/xray/domain 2>/dev/null || cat /etc/zivpn/zivpn.crt 2>/dev/null | openssl x509 -noout -subject | sed -n 's/^.*CN = //p')
+[ -z "$DOMAIN" ] && DOMAIN=$(curl -s ipv4.icanhazip.com)
+IP=$(curl -s ipv4.icanhazip.com)
+OS=$(neofetch --stdout | grep "OS:" | cut -d: -f2 | sed 's/ //g')
+
+echo -e "${CYAN}┌────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${WHITE}${BOLD}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
+echo -e "${CYAN}├────────────────────────────────────────────────────────┤${NC}"
+printf "${CYAN}│${NC} ${GRAY}OS     :${NC} %-19s ${GRAY}IP     :${NC} %-14s ${CYAN}│${NC}\n" "${OS:0:19}" "${IP:0:14}"
+printf "${CYAN}│${NC} ${GRAY}Domain :${NC} %-39s ${CYAN}│${NC}\n" "${DOMAIN:0:39}"
+echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
+echo -e ""
+echo -e " ${YELLOW}FEATURE PREVIEW:${NC}"
+echo -e " ${GRAY}• SSH / VPN / XRAY Manager${NC}"
+echo -e " ${GRAY}• Backup & Restore Data${NC}"
+echo -e " ${GRAY}• Auto Script Installer${NC}"
+echo -e ""
+echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
+echo -e "          ${WHITE}TEKAN [ ENTER ] UNTUK MEMBUKA MENU${NC}"
+echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
+read -n 1 -s -r -p ""
+menu
+EOF
+
+chmod +x $LANDING_BIN
+
+# Modify .profile
+sed -i '/landing-page/d' ~/.profile
+cat >> ~/.profile << 'EOF'
+if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
+    /usr/bin/landing-page
+fi
+EOF
+
+# ==========================================
+# 9. FINISHING
+# ==========================================
 systemctl daemon-reload
 systemctl enable $SERVICE_VPN $SERVICE_API
 systemctl start $SERVICE_VPN
