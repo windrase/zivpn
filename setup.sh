@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# WINTUNELING VPN - PROFESSIONAL EDITION v2.3 (FIX LAYOUT)
+# WINTUNELING VPN - PROFESSIONAL EDITION v2.4 (AUTO WELCOME)
 # ============================================================
 
 # ⚠️ IP SERVER LICENSE
@@ -18,6 +18,7 @@ SERVICE_API="zivpn-api.service"
 BIN="/usr/local/bin/zivpn"
 MENU_BIN="/usr/local/bin/menu"
 BACKUP_BIN="/usr/local/bin/backup-tg"
+WELCOME_BIN="/usr/local/bin/welcome"
 
 # --- Warna ---
 RED='\e[1;31m'
@@ -67,7 +68,7 @@ fi
 
 # 2. SYSTEM PREP
 clear
-echo -e "${CYAN}[1/7] Preparing System...${NC}"
+echo -e "${CYAN}[1/8] Preparing System...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl zip unzip cron net-tools lsb-release gnupg vnstat bc >/dev/null 2>&1
@@ -84,7 +85,7 @@ if ! command -v node &> /dev/null; then
 fi
 
 # 3. SETUP DOMAIN & CORE
-echo -e "${CYAN}[2/7] Installing Core...${NC}"
+echo -e "${CYAN}[2/8] Installing Core...${NC}"
 systemctl stop $SERVICE_VPN >/dev/null 2>&1
 mkdir -p $DIR
 
@@ -158,7 +159,7 @@ WantedBy=multi-user.target
 EOF
 
 # 4. INSTALL API BACKEND
-echo -e "${CYAN}[3/7] Installing API Backend...${NC}"
+echo -e "${CYAN}[3/8] Installing API Backend...${NC}"
 mkdir -p $DIR_API
 cd $DIR_API
 if [ ! -f "package.json" ]; then
@@ -190,7 +191,7 @@ WantedBy=multi-user.target
 EOF
 
 # 5. FIREWALL & CRON
-echo -e "${CYAN}[4/7] Configuring Firewall & Cron...${NC}"
+echo -e "${CYAN}[4/8] Configuring Firewall & Cron...${NC}"
 iptables -t nat -A PREROUTING -i $INTF -p udp --dport 6000:19999 -j DNAT --to-destination :5667
 
 cat <<EOF > /usr/local/bin/zivpn-expire
@@ -213,7 +214,7 @@ chmod +x /usr/local/bin/zivpn-expire
 (crontab -l 2>/dev/null; echo "* * * * * /usr/local/bin/zivpn-expire") | crontab - -u root 2>/dev/null
 
 # 6. INSTALL BACKUP SCRIPT
-echo -e "${CYAN}[5/7] Installing Backup Script...${NC}"
+echo -e "${CYAN}[5/8] Installing Backup Script...${NC}"
 cat << 'EOF' > $BACKUP_BIN
 #!/bin/bash
 TG_CONFIG="/etc/zivpn/tg_backup.conf"
@@ -244,8 +245,107 @@ rm $FILENAME
 EOF
 chmod +x $BACKUP_BIN
 
-# 7. MENU PREMIUM (PROFESSIONAL & FIXED LAYOUT)
-echo -e "${CYAN}[6/7] Installing Script Menu...${NC}"
+# 7. INSTALL PREVIEW / LANDING PAGE (WELCOME)
+echo -e "${CYAN}[6/8] Installing System...${NC}"
+
+cat << 'END_WELCOME' > $WELCOME_BIN
+#!/bin/bash
+# WINTUNELING PREVIEW
+NC='\e[0m'
+RED='\e[1;31m'
+GREEN='\e[1;32m'
+YELLOW='\e[1;33m'
+CYAN='\e[1;36m'
+WHITE='\e[1;37m'
+BOLD='\e[1m'
+GRAY='\e[90m'
+
+function get_info_preview() {
+    OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
+    OS=$(echo "$OS" | cut -c 1-15)
+    
+    ISP=$(curl -s ip-api.com/json | jq -r .isp)
+    ISP=$(echo "$ISP" | cut -c 1-15)
+    IP=$(curl -s ipv4.icanhazip.com)
+    
+    CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "Unknown")
+    EXP_DATE=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Unknown")
+    
+    d1=$(date -d "$EXP_DATE" +%s 2>/dev/null)
+    d2=$(date -d "$(date +%Y-%m-%d)" +%s)
+    if [[ ! -z "$d1" ]]; then
+        DAYS_LEFT=$(( ($d1 - $d2) / 86400 ))
+        if [ $DAYS_LEFT -lt 0 ]; then DAYS_LEFT="EXPIRED"; fi
+    else
+        DAYS_LEFT="-"
+    fi
+
+    total_ram=$(free -m | awk 'NR==2{print $2}')
+    used_ram=$(free -m | awk 'NR==2{print $3}')
+    ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
+    
+    cpu_usage=$(grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}' | awk '{printf("%.0f", $1)}')
+    disk_usage=$(df -h / | awk 'NR==2 {print $5}')
+    
+    INTF=$(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1)
+    RX_TODAY=$(vnstat -i $INTF -d --oneline 2>/dev/null | awk -F\; '{print $6}')
+    TX_TODAY=$(vnstat -i $INTF -d --oneline 2>/dev/null | awk -F\; '{print $7}')
+    RX_MONTH=$(vnstat -i $INTF -m --oneline 2>/dev/null | awk -F\; '{print $9}')
+    TX_MONTH=$(vnstat -i $INTF -m --oneline 2>/dev/null | awk -F\; '{print $10}')
+}
+
+clear
+get_info_preview
+echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
+echo -e "${CYAN} │${WHITE}${BOLD}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
+echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
+
+echo -e "${CYAN} ┌─────────────────────${WHITE} SYSTEM INFO ${CYAN}────────────────────┐${NC}"
+printf "${CYAN} │${NC} ${GRAY}OS   :${NC} %-15s ${GRAY}RAM  :${NC} %-4s %-12s ${CYAN}│${NC}\n" "$OS" "$ram_perc%" "($used_ram MB)"
+printf "${CYAN} │${NC} ${GRAY}IP   :${NC} %-15s ${GRAY}CPU  :${NC} %-17s ${CYAN}│${NC}\n" "$IP" "$cpu_usage%"
+printf "${CYAN} │${NC} ${GRAY}ISP  :${NC} %-15s ${GRAY}DISK :${NC} %-17s ${CYAN}│${NC}\n" "$ISP" "$disk_usage"
+echo -e "${CYAN} ├────────────────────────────────────────────────────────┤${NC}"
+printf "${CYAN} │${NC} ${GRAY}BW Today :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_TODAY" "$TX_TODAY"
+printf "${CYAN} │${NC} ${GRAY}BW Month :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_MONTH" "$TX_MONTH"
+echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+
+echo -e "${CYAN} ┌──────────────────────${WHITE} LICENSE ${CYAN}────────────────────────┐${NC}"
+printf "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}%-43s${NC} ${CYAN}│${NC}\n" "$CLIENT"
+printf "${CYAN} │${NC} ${GRAY}Expired :${NC} ${WHITE}%-10s${NC} (${GREEN}%-4s Hari${NC})                      ${CYAN}│${NC}\n" "$EXP_DATE" "$DAYS_LEFT"
+echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+
+echo -e "${CYAN} ┌──────────────────────${WHITE} ACCOUNT ${CYAN}────────────────────────┐${NC}"
+printf "${CYAN} │${NC} ${WHITE}[1]${NC} %-23s ${WHITE}[2]${NC} %-23s ${CYAN}│${NC}\n" "Create Account" "Create Trial"
+printf "${CYAN} │${NC} ${WHITE}[3]${NC} %-23s ${WHITE}[4]${NC} %-23s ${CYAN}│${NC}\n" "Renew Account" "Delete Account"
+printf "${CYAN} │${NC} ${WHITE}[5]${NC} %-23s ${WHITE}[6]${NC} %-23s ${CYAN}│${NC}\n" "List Users" "Change Domain"
+echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+
+echo -e "${CYAN} ┌──────────────────────${WHITE} SETTINGS ${CYAN}───────────────────────┐${NC}"
+printf "${CYAN} │${NC} ${WHITE}[7]${NC} %-23s ${WHITE}[8]${NC} %-23s ${CYAN}│${NC}\n" "Restart Service" "Setup Telegram"
+printf "${CYAN} │${NC} ${WHITE}[9]${NC} %-23s ${WHITE}[10]${NC} %-22s ${CYAN}│${NC}\n" "Backup Now" "Auto Backup"
+printf "${CYAN} │${NC} ${WHITE}[11]${NC} %-49s ${CYAN}│${NC}\n" "Restore Data"
+echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+
+echo -e "                         ${RED}[0] Exit${NC}"
+echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
+read -n 1 -s -r -p "             Tekan [ ENTER ] untuk masuk ke Menu..."
+
+# Masuk Menu Asli
+menu
+END_WELCOME
+chmod +x $WELCOME_BIN
+
+# Setup Auto-Run di .bashrc
+echo -e "${CYAN}[7/8] Configuring Auto-Start...${NC}"
+if ! grep -q "welcome" ~/.bashrc; then
+    echo "# Auto Run Welcome Preview" >> ~/.bashrc
+    echo "if [[ -n \"\$SSH_CLIENT\" ]] || [[ -n \"\$SSH_TTY\" ]]; then" >> ~/.bashrc
+    echo "    $WELCOME_BIN" >> ~/.bashrc
+    echo "fi" >> ~/.bashrc
+fi
+
+# 8. MENU PREMIUM (PROFESSIONAL & FIXED LAYOUT)
+echo -e "${CYAN}[8/8] Installing Script Menu...${NC}"
 
 cat << 'END_OF_MENU' > $MENU_BIN
 #!/bin/bash
@@ -279,7 +379,6 @@ function send_log() {
 
 function get_info() {
     OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
-    # Potong string OS dan ISP agar tidak merusak layout
     OS=$(echo "$OS" | cut -c 1-15)
     
     ISP=$(curl -s ip-api.com/json | jq -r .isp)
@@ -325,7 +424,6 @@ function show_menu() {
     printf "${CYAN} │${NC} ${GRAY}ISP  :${NC} %-15s ${GRAY}DISK :${NC} %-17s ${CYAN}│${NC}\n" "$ISP" "$disk_usage"
     echo -e "${CYAN} ├────────────────────────────────────────────────────────┤${NC}"
     
-    # Bandwidth - Split into 2 lines for tidiness
     printf "${CYAN} │${NC} ${GRAY}BW Today :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_TODAY" "$TX_TODAY"
     printf "${CYAN} │${NC} ${GRAY}BW Month :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_MONTH" "$TX_MONTH"
     echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
@@ -586,7 +684,7 @@ END_OF_MENU
 
 chmod +x $MENU_BIN
 
-# 8. FINISHING
+# 9. FINISHING
 systemctl daemon-reload
 systemctl enable $SERVICE_VPN $SERVICE_API
 systemctl start $SERVICE_VPN
@@ -602,4 +700,8 @@ echo -e " Command  : ${BOLD}menu${NC}"
 echo -e " IP VPS   : ${CYAN}$MYIP${NC}"
 echo -e " API Port : ${CYAN}5888${NC}"
 echo -e " API Key  : ${YELLOW}$API_KEY${NC}"
+echo -e " Preview  : ${YELLOW}Auto ON Login${NC}"
 echo -e "${GREEN}=========================================${NC}"
+echo -e "${YELLOW}Rebooting System in 5 seconds...${NC}"
+sleep 5
+reboot
