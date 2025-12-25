@@ -1,8 +1,13 @@
 #!/bin/bash
+# ============================================================
+# WINTUNELING VPN - CLIENT INSTALLER (FINAL VERSION)
+# ============================================================
 
-LICENSE_URL="https://github.com/windrase/client/blob/main/whitelist.txt"
+# ⚠️ GANTI IP DI BAWAH INI DENGAN IP VPS ADMIN (TEMPAT BOT BERJALAN) ⚠️
+# JANGAN GUNAKAN GITHUB JIKA PAKAI BOT ADMIN
+LICENSE_URL="http://129.226.206.227:3000/whitelist"
 
-# --- Konfigurasi Path ---
+# --- Konfigurasi Variable ---
 DIR="/etc/zivpn"
 DIR_API="$DIR/api"
 DB="$DIR/user.db"
@@ -15,13 +20,11 @@ BIN="/usr/local/bin/zivpn"
 MENU_BIN="/usr/local/bin/menu"
 BACKUP_BIN="/usr/local/bin/backup-tg"
 
-# --- Warna & Style ---
+# --- Warna ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-WHITE='\033[0;37m'
 NC='\033[0m'
 BOLD='\033[1m'
 
@@ -29,7 +32,7 @@ BOLD='\033[1m'
 clear
 echo -e "${YELLOW}[INFO] Checking License Wintunneling...${NC}"
 MYIP=$(curl -s ipv4.icanhazip.com)
-LICENSE_DATA=$(curl -s "$LICENSE_URL")
+LICENSE_DATA=$(curl -s --connect-timeout 5 "$LICENSE_URL")
 
 if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     CLIENT_DATA=$(echo "$LICENSE_DATA" | grep "$MYIP")
@@ -39,7 +42,7 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
         echo -e "${RED}❌ LICENSE EXPIRED ($EXP_DATE) ❌${NC}"
-        echo -e "Halo $CLIENT_NAME, Silakan hubungi Admin untuk perpanjang."
+        echo -e "Silakan hubungi Admin t.me/WINTUNELINGVPNN untuk perpanjang."
         exit 1
     else
         echo -e "${GREEN}✅ License Valid! Welcome $CLIENT_NAME${NC}"
@@ -49,8 +52,8 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
         sleep 2
     fi
 else
-    echo -e "${RED}❌ IP ($MYIP) TIDAK TERDAFTAR ❌${NC}"
-    echo -e "Silakan hubungi Admin WINTUNELING VPN."
+    echo -e "${RED}❌ AKSES DITOLAK! IP ($MYIP) TIDAK TERDAFTAR ❌${NC}"
+    echo -e "Hubungi Admin untuk Register IP."
     exit 1
 fi
 
@@ -62,10 +65,8 @@ apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl zip unzip cron net-tools lsb-release gnupg vnstat bc >/dev/null 2>&1
 
 # Setup Vnstat
-if ! systemctl is-active --quiet vnstat; then
-    systemctl enable vnstat
-    systemctl start vnstat
-fi
+systemctl enable vnstat
+systemctl start vnstat
 
 # Install Node.js
 if ! command -v node &> /dev/null; then
@@ -338,10 +339,24 @@ CYAN='\e[1;36m'
 WHITE='\e[1;37m'
 NC='\e[0m'
 BOLD='\e[1m'
+GRAY='\e[90m'
+
+function draw_bar() {
+    local perc=$1
+    local size=10
+    local filled=$(printf "%.0f" $(echo "$perc * $size / 100" | bc))
+    local empty=$((size - filled))
+    printf "${PURPLE}"
+    for ((i=0; i<filled; i++)); do printf "█"; done
+    printf "${GRAY}"
+    for ((i=0; i<empty; i++)); do printf "░"; done
+    printf "${NC}"
+}
 
 function get_info() {
-    OS=$(lsb_release -d | cut -f2 | tr -d '"')
+    OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
     ISP=$(curl -s ip-api.com/json | jq -r .isp)
+    CITY=$(curl -s ip-api.com/json | jq -r .city)
     IP=$(curl -s ipv4.icanhazip.com)
     CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "Unknown")
     EXP_SCRIPT=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Unknown")
@@ -349,45 +364,59 @@ function get_info() {
     [ -z "$DOMAIN" ] && DOMAIN="$IP"
     TOTAL_USER=$(wc -l < $DB 2>/dev/null || echo 0)
     
+    # RAM
+    total_ram=$(free -m | awk 'NR==2{print $2}')
+    used_ram=$(free -m | awk 'NR==2{print $3}')
+    ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
+    
     if systemctl is-active --quiet $SERVICE; then
-        STATUS="${GREEN}AMAN (RUNNING)${NC}"
+        STATUS="${GREEN}ACTIVE${NC}"
     else
-        STATUS="${RED}ERROR (STOPPED)${NC}"
+        STATUS="${RED}DOWN${NC}"
     fi
     
     TX_TODAY=$(vnstat -d --oneline | awk -F';' '{print $6}' || echo "N/A")
     TX_MONTH=$(vnstat -m --oneline | awk -F';' '{print $11}' || echo "N/A")
+    
+    # API Status
+    API_KEY=$(cat $API_KEY_FILE)
+    if [ -n "$API_KEY" ]; then API_STAT="${GREEN}ON${NC}"; else API_STAT="${RED}OFF${NC}"; fi
 }
 
 function show_menu() {
     clear
     get_info
-    echo -e "${CYAN}┌────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│${WHITE}${BOLD}            WINTUNELING VPN           ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN}┌────────────────────── ${WHITE}INFO CLIENT${CYAN} ──────────────────────┐${NC}"
-    echo -e "${CYAN}│${NC} ${YELLOW}Client Name${NC}  : $CLIENT"
-    echo -e "${CYAN}│${NC} ${YELLOW}Exp Script${NC}   : ${RED}$EXP_SCRIPT${NC}"
-    echo -e "${CYAN}│${NC} ${YELLOW}IP VPS${NC}       : $IP"
-    echo -e "${CYAN}│${NC} ${YELLOW}OS System${NC}    : $OS"
-    echo -e "${CYAN}│${NC} ${YELLOW}ISP Name${NC}     : $ISP"
-    echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN}┌────────────────────── ${WHITE}DASHBOARD${CYAN} ───────────────────────┐${NC}"
-    echo -e "${CYAN}│${NC} ${YELLOW}Domain${NC}       : ${GREEN}$DOMAIN${NC}"
-    echo -e "${CYAN}│${NC} ${YELLOW}Status${NC}       : $STATUS"
-    echo -e "${CYAN}│${NC} ${YELLOW}Total User${NC}   : ${GREEN}$TOTAL_USER${NC} Active Users"
-    echo -e "${CYAN}│${NC} ${YELLOW}Bandwidth${NC}    : Today: $TX_TODAY | Month: $TX_MONTH"
-    echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
+    echo -e "${CYAN} │${WHITE}${BOLD}               WINTUNELING VPN                ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
+    echo -e "${CYAN} ┌─────────────── ───[ SYSTEM INFO ]──────────────────────┐${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}OS      :${NC} $OS"
+    echo -e "${CYAN} │${NC} ${GRAY}IP      :${NC} $IP"
+    echo -e "${CYAN} │${NC} ${GRAY}ISP     :${NC} $ISP ($CITY)"
+    echo -e "${CYAN} │${NC} ${GRAY}RAM     :${NC} $(draw_bar $ram_perc) $ram_perc% ($used_ram MB)"
+    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN} ┌─────────────────────[ LICENSE ] ───────────────────────┐${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}$CLIENT${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Expired :${NC} $EXP_SCRIPT"
+    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN} ┌────────────────── [ VPN STATUS ]───────────────────────┐${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Domain  :${NC} ${GREEN}$DOMAIN${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}Status  :${NC} $STATUS        ${GRAY}Users :${NC} ${WHITE}$TOTAL_USER${NC}"
+    echo -e "${CYAN} │${NC} ${GRAY}API Key :${NC} $API_STAT"
+    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
     echo -e ""
-    echo -e " ${WHITE}[1]${NC} Create Account     ${WHITE}[2]${NC} Create Trial"
-    echo -e " ${WHITE}[3]${NC} Renew Account      ${WHITE}[4]${NC} Delete Account"
-    echo -e " ${WHITE}[5]${NC} List User          ${WHITE}[6]${NC} Change Domain"
-    echo -e " ${WHITE}[7]${NC} Check API Key      ${WHITE}[8]${NC} Restart Service"
-    echo -e " ${WHITE}[9]${NC} Backup Now         ${WHITE}[10]${NC} Restore Data"
-    echo -e " ${WHITE}[11]${NC} Auto Backup        ${WHITE}[12]${NC} Reset Telegram Notif"
+    echo -e " ${CYAN}[ MENU MANAGEMENT ]${NC}"
+    echo -e " ${WHITE}[1]${NC} Create Account      ${WHITE}[2]${NC} Create Trial"
+    echo -e " ${WHITE}[3]${NC} Renew Account       ${WHITE}[4]${NC} Delete Account"
+    echo -e " ${WHITE}[5]${NC} List Users          ${WHITE}[6]${NC} Change Domain"
     echo -e ""
-    echo -e "                    ${RED}[0] Exit${NC}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────${NC}"
+    echo -e " ${CYAN}[ SYSTEM & BACKUP ]${NC}"
+    echo -e " ${WHITE}[7]${NC} Check API Key       ${WHITE}[8]${NC} Restart Service"
+    echo -e " ${WHITE}[9]${NC} Backup Now          ${WHITE}[10]${NC} Restore Data"
+    echo -e " ${WHITE}[11]${NC} Auto Backup         ${WHITE}[12]${NC} Notif Telegram"
+    echo -e ""
+    echo -e "                         ${RED}[0] Exit${NC}"
+    echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
     read -p " Select Option: " opt
     case $opt in
         1) create_user ;;
@@ -409,7 +438,6 @@ function show_menu() {
 function backup_data() {
     clear
     echo -e "${CYAN}[ BACKUP DATA TO TELEGRAM ]${NC}"
-    
     if [ ! -f "$TG_CONFIG" ]; then
         echo -e "${YELLOW}Telegram Config Not Found!${NC}"
         read -p "Enter Bot Token : " token
@@ -417,7 +445,6 @@ function backup_data() {
         echo "TG_TOKEN='$token'" > $TG_CONFIG
         echo "TG_ID='$chatid'" >> $TG_CONFIG
     fi
-    
     echo -e "${YELLOW}Sending Backup...${NC}"
     /usr/local/bin/backup-tg
     echo -e "${GREEN}✅ Done! Check your Telegram.${NC}"
@@ -427,29 +454,21 @@ function backup_data() {
 function auto_backup_setup() {
     clear
     echo -e "${CYAN}[ AUTO BACKUP SETTING ]${NC}"
-    
     if [ ! -f "$TG_CONFIG" ]; then
         echo -e "${RED}Please Setup 'Backup Now' [Menu 9] first!${NC}"
         read -p "Enter..."
         return
     fi
-    
     read -p "Set Jam (Format HH:MM, contoh 00:00) : " jam
-    
     if [[ ! $jam =~ ^([0-1][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
-        echo -e "${RED}Format Salah! Gunakan format 24 jam (contoh: 05:30)${NC}"
-        read -p "Enter..."
-        return
+        echo -e "${RED}Format Salah!${NC}"; read -p "Enter..."; return
     fi
-    
     hh=$(echo $jam | cut -d: -f1)
     mm=$(echo $jam | cut -d: -f2)
-    
     cat << EOF > /etc/cron.d/zivpn_autobackup
 # Auto Backup Wintunneling
 $mm $hh * * * root /usr/local/bin/backup-tg
 EOF
-    
     service cron restart
     echo -e "${GREEN}✅ Auto Backup Diatur pada jam $jam${NC}"
     read -p "Press Enter..."
@@ -461,9 +480,8 @@ function reset_tg_config() {
     if [ -f "$TG_CONFIG" ]; then
         rm "$TG_CONFIG"
         echo -e "${GREEN}✅ Konfigurasi Telegram berhasil direset!${NC}"
-        echo -e "${YELLOW}Silakan setup ulang saat melakukan Backup nanti.${NC}"
     else
-        echo -e "${RED}⚠️ Belum ada konfigurasi yang tersimpan.${NC}"
+        echo -e "${RED}⚠️ Belum ada konfigurasi.${NC}"
     fi
     read -p "Press Enter..."
 }
