@@ -23,9 +23,7 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
-# ==========================================
-# 1. IP REGISTER & EXPIRED CHECK
-# ==========================================
+# IP REGISTER & EXPIRED CHECK
 clear
 echo -e "${YELLOW}[INFO] Checking License Registration...${NC}"
 MYIP=$(curl -s ipv4.icanhazip.com)
