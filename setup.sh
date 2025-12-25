@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# GANTI LINK INI DENGAN RAW GITHUB ANDA
-LICENSE_URL="https://raw.githubusercontent.com/username/repo/main/whitelist.txt"
+LICENSE_URL="https://github.com/windrase/client/blob/main/whitelist.txt"
 
-# Konfigurasi Path
+# --- Konfigurasi Path ---
 DIR="/etc/zivpn"
 DIR_API="$DIR/api"
 DB="$DIR/user.db"
@@ -26,7 +25,7 @@ WHITE='\033[0;37m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-# CEK LICENSE & INFO CLIENT
+# 1. CEK LICENSE & INFO CLIENT
 clear
 echo -e "${YELLOW}[INFO] Checking License Wintunneling...${NC}"
 MYIP=$(curl -s ipv4.icanhazip.com)
@@ -55,7 +54,7 @@ else
     exit 1
 fi
 
-# SYSTEM PREP
+# 2. SYSTEM PREP
 clear
 echo -e "${CYAN}[1/7] Preparing System...${NC}"
 export DEBIAN_FRONTEND=noninteractive
@@ -299,7 +298,7 @@ FILENAME="backup-$IP-$DATE.zip"
 # Zip Data Penting
 zip -r /root/$FILENAME /etc/zivpn/user.db /etc/zivpn/config.json /etc/zivpn/apikey /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key > /dev/null 2>&1
 
-CAPTION="🤖 *AUTO BACKUP WINTUNELING*
+CAPTION="🤖 *AUTO BACKUP FILE*
 ━━━━━━━━━━━━━━━━━━━━
 📅 Date  : \`$DATE\`
 ⏰ Time  : \`$TIME\`
@@ -364,7 +363,7 @@ function show_menu() {
     clear
     get_info
     echo -e "${CYAN}┌────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│${WHITE}${BOLD}            WINTUNELING VPN          ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN}│${WHITE}${BOLD}            WINTUNELING VPN           ${NC}${CYAN}│${NC}"
     echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
     echo -e "${CYAN}┌────────────────────── ${WHITE}INFO CLIENT${CYAN} ──────────────────────┐${NC}"
     echo -e "${CYAN}│${NC} ${YELLOW}Client Name${NC}  : $CLIENT"
@@ -373,7 +372,7 @@ function show_menu() {
     echo -e "${CYAN}│${NC} ${YELLOW}OS System${NC}    : $OS"
     echo -e "${CYAN}│${NC} ${YELLOW}ISP Name${NC}     : $ISP"
     echo -e "${CYAN}└────────────────────────────────────────────────────────┘${NC}"
-    echo -e "${CYAN}┌────────────────────── ${WHITE}VPN STATUS${CYAN} ───────────────────────┐${NC}"
+    echo -e "${CYAN}┌────────────────────── ${WHITE}DASHBOARD${CYAN} ───────────────────────┐${NC}"
     echo -e "${CYAN}│${NC} ${YELLOW}Domain${NC}       : ${GREEN}$DOMAIN${NC}"
     echo -e "${CYAN}│${NC} ${YELLOW}Status${NC}       : $STATUS"
     echo -e "${CYAN}│${NC} ${YELLOW}Total User${NC}   : ${GREEN}$TOTAL_USER${NC} Active Users"
@@ -555,7 +554,7 @@ function change_domain() {
 
 function show_api() {
     clear
-    echo -e "${CYAN}┌── [ API KEY ]${NC}"
+    echo -e "${CYAN}┌── [ API CONFIG ]${NC}"
     echo -e "│ Key  : ${YELLOW}$(cat $API_KEY_FILE)${NC}"
     echo -e "│ Port : ${YELLOW}5888${NC}"
     echo -e "${CYAN}└─────────────────${NC}"
@@ -583,7 +582,7 @@ MYIP=$(curl -s ipv4.icanhazip.com)
 
 clear
 echo -e "${GREEN}=========================================${NC}"
-echo -e "${YELLOW}    WINTUNELING VPN SCRIPT INSTALLED SUCCESS    ${NC}"
+echo -e "${YELLOW}    WINTUNELING VPN INSTALLED SUCCESS    ${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo -e " Command  : ${BOLD}menu${NC}"
 echo -e " IP VPS   : ${CYAN}$MYIP${NC}"
