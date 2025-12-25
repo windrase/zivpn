@@ -1,6 +1,6 @@
 #!/bin/bash
 # WINTUNELING VPN - ULTIMATE EDITION
-# Features: Telegram-Style Output, Clean Menu (No Box), Auto Backup, Fix Profile
+# Features: Telegram-Style Output, Clean Menu (Open Box), Auto Backup, Fix Profile
 
 # ==========================================
 # 0. FIX PROFILE & PERMISSIONS
@@ -38,6 +38,7 @@ RED='\033[0;31m'
 YELLOW='\033[0;33m'
 PURPLE='\033[0;35m'
 BLUE='\033[0;34m'
+WHITE='\033[1;37m'
 NC='\033[0m'
 
 # ==========================================
@@ -54,9 +55,15 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     EXP_DATE=$(echo "$DATA_CLIENT" | cut -d: -f3)
     TODAY=$(date +%Y-%m-%d)
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
-        echo -e "${RED}⛔ LICENSE EXPIRED: $EXP_DATE${NC}"; exit 1
+        echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
+        echo -e "${RED}         ⛔ LICENSE EXPIRED: $EXP_DATE${NC}"; exit 1
+        echo -e "${RED}     Please Contact t.me/WINTUNELING VPNN For License${NC}"
+        echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
     else
-        echo -e "${GREEN}✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
+        echo -e "${PURPLE}┌──────────────────────────────────────────────────┐${NC}"
+        echo -e "${GREEN}       ✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
+        echo -e "${GREEN}           THANKS FOR USING THIS SCRIPT${NC}"
+        echo -e "${PURPLE}└──────────────────────────────────────────────────┘${NC}"
         mkdir -p /etc/wintunnel
         echo "$CLIENT_NAME" > /etc/wintunnel/client
         echo "$EXP_DATE" > /etc/wintunnel/exp
@@ -87,7 +94,25 @@ fi
 echo -e "${CYAN}[2/5] Installing Core...${NC}"
 systemctl stop $SERVICE_VPN >/dev/null 2>&1
 mkdir -p $DIR $DIR_API
-if [ -f /etc/xray/domain ]; then DOMAIN_INPUT=$(cat /etc/xray/domain); else DOMAIN_INPUT=$(curl -s ipv4.icanhazip.com); fi
+
+# --- PERBAIKAN: WAJIB INPUT DOMAIN ---
+clear
+echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
+echo -e "${YELLOW}│${NC}            ISI DOMAIN SERVER ANDA                 ${NC}"
+echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
+while true; do
+    read -p "Input Domain (e.g., vpn.myserver.com): " DOMAIN_INPUT
+    if [ -n "$DOMAIN_INPUT" ]; then
+        echo -e "${GREEN}Domain saved: $DOMAIN_INPUT${NC}"
+        # Simpan domain untuk keperluan lain jika perlu
+        mkdir -p /etc/xray
+        echo "$DOMAIN_INPUT" > /etc/xray/domain
+        break
+    else
+        echo -e "${RED}Error:DOMAIN TIDAK BOLEH KOSONG!!!.${NC}"
+    fi
+done
+# -------------------------------------
 
 ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
@@ -218,22 +243,26 @@ function show_menu() {
     clear
     get_info
     
-    echo -e "${PURPLE} ╭──────────────────────────────────────────────────╮${NC}"       .
-    echo -e "${PURPLE} │${CYAN}           WINTUNELING ZIVVPN                   ${PURPLE}│${NC}"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────┤${NC}"
-    
-    printf "${PURPLE} │ ${CYAN}%-8s: ${YELLOW}%-18s ${PURPLE}│ ${CYAN}%-4s: ${YELLOW}%-12s ${PURPLE}│${NC}\n" "OS" "${OS:0:18}" "IP" "$IP"
-    printf "${PURPLE} │ ${CYAN}%-8s: ${YELLOW}%-18s ${PURPLE}│ ${CYAN}%-4s: ${YELLOW}%-12s ${PURPLE}│${NC}\n" "Domain" "${DOMAIN:0:18}" "ISP" "${ISP:0:12}"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────┤${NC}"
-    printf "${PURPLE} │ ${CYAN}%-8s: ${YELLOW}%-18s ${PURPLE}│ ${CYAN}%-4s: ${YELLOW}%-12s ${PURPLE}│${NC}\n" "Client" "${CLIENT:0:15}" "EXP" "$EXP_DATE"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────┤${NC}"
-    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "RAM" "$RAM_USED/$RAM_TOTAL MB ($RAM_PERC%)"
-    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "CPU" "$CPU_MODEL"
-    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "Uptime" "$UPTIME"
-    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "Users" "$USERS Account(s)"
-    echo -e "${PURPLE} ├────────────────────────┬─────────────────────────┤${NC}"
-    printf "${PURPLE} │ ${CYAN}Service: %-15s ${PURPLE}│ ${CYAN}API: %-19s ${PURPLE}│${NC}\n" "$STAT_VPN" "$STAT_API"
-    echo -e "${PURPLE} ╰────────────────────────┴─────────────────────────╯${NC}"
+    # --- PERBAIKAN WIDGET (OPEN BOX / TANPA PENUTUP) ---
+    echo -e "${PURPLE} ╭──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} │${CYAN}                WINTUNELING ZIVVPN${NC}"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} │${CYAN} OS      : ${YELLOW}$OS${NC}"
+    echo -e "${PURPLE} │${CYAN} IP      : ${YELLOW}$IP${NC}"
+    echo -e "${PURPLE} │${CYAN} Domain  : ${YELLOW}$DOMAIN${NC}"
+    echo -e "${PURPLE} │${CYAN} ISP     : ${YELLOW}$ISP${NC}"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} │${CYAN} Client  : ${YELLOW}$CLIENT${NC}"
+    echo -e "${PURPLE} │${CYAN} Exp     : ${YELLOW}$EXP_DATE${NC}"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} │${CYAN} RAM     : ${WHITE}$RAM_USED/$RAM_TOTAL MB ($RAM_PERC%)${NC}"
+    echo -e "${PURPLE} │${CYAN} CPU     : ${WHITE}$CPU_MODEL${NC}"
+    echo -e "${PURPLE} │${CYAN} Uptime  : ${WHITE}$UPTIME${NC}"
+    echo -e "${PURPLE} │${CYAN} Users   : ${WHITE}$USERS Account(s)${NC}"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    # Perbaikan Service & API (Tanpa Penutup & Satu Baris)
+    echo -e "${PURPLE} │${CYAN} Service : ${STAT_VPN}    ${CYAN}API : ${STAT_API}${NC}"
+    echo -e "${PURPLE} ╰──────────────────────────────────────────────────────────${NC}"
     
     echo -e ""
     echo -e "  ${BLUE}[1]${NC} Create Account        ${BLUE}[2]${NC} Create Trial"
@@ -269,14 +298,10 @@ function create_user() {
     echo "$user:$pass:$exp" >> $DB
     sync_config
     
-    # Format Date
     exp_date=$(date -d @$exp "+%d %b %Y")
-    
-    # Ambil Domain
     DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
     [ -z "$DOMAIN" ] && DOMAIN=$(curl -s ipv4.icanhazip.com)
 
-    # Tampilan Output (Mirip Telegram)
     clear
     echo -e ""
     echo -e "${GREEN}✅ ACCOUNT SUCCESS CREATED${NC}"
@@ -288,7 +313,6 @@ function create_user() {
     echo -e "Terimakasih Sudah Mengunakan Layanan Kami"
     echo -e ""
     
-    # Kirim Notif ke Telegram
     TEXT="<code><b>✅ ACCOUNT SUCCESS CREATED</b>
 ━━━━━━━━━━━━━━━━━━━━
 <b>Domain :</b> <code>${DOMAIN}</code>
@@ -310,11 +334,9 @@ function trial_user() {
     echo "$user:$pass:$exp" >> $DB
     sync_config
     
-    # Ambil Domain
     DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
     [ -z "$DOMAIN" ] && DOMAIN=$(curl -s ipv4.icanhazip.com)
 
-    # Tampilan Output (Mirip Telegram)
     clear
     echo -e ""
     echo -e "${YELLOW}⏳ TRIAL ACCOUNT CREATED${NC}"
@@ -326,7 +348,6 @@ function trial_user() {
     echo -e "Terimakasih Sudah Mengunakan Layanan Kami"
     echo -e ""
 
-    # Kirim Notif ke Telegram
     TEXT="<code><b>⏳ TRIAL ACCOUNT CREATED</b>
 ━━━━━━━━━━━━━━━━━━━━
 <b>Domain :</b> <code>${DOMAIN}</code>
@@ -409,8 +430,8 @@ cat << 'EOF' > $LANDING_BIN
 #!/bin/bash
 CYAN='\033[0;36m'; NC='\033[0m'
 clear
-echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"   .
-echo -e "${CYAN}│${NC}        WINTUNELING ZIVPVPN SERVER              ${CYAN}│${NC}"
+echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC}             WINTUNELING ZIVPN SERVER${NC}"
 echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
 echo -e ""
 echo -e "${CYAN}      >>> PRESS [ ENTER ] TO ENTER MENU <<<${NC}"
@@ -433,9 +454,9 @@ systemctl enable $SERVICE_VPN $SERVICE_API
 systemctl start $SERVICE_VPN $SERVICE_API
 
 clear
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${YELLOW}        INSTALLATION SUCCESSFUL!         ${NC}"
-echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
+echo -e "${YELLOW}           SUCCESFULLY INSTALL SCRIPT${NC}"
+echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
 echo -e " Menu Style  : Neon & Open Box"
 echo -e " Command     : menu"
 echo -e " Rebooting in 5s..."
