@@ -1,6 +1,7 @@
 #!/bin/bash
 # WINTUNELING VPN - PROFESSIONAL EDITION
-# Features: Telegram Notif, Landing Page, Table View for Delete/Renew
+# Updated: Delete/Renew shows Password & Exp only
+# Branding: WINTUNELING VPN
 
 # ==========================================
 # CONFIGURATION
@@ -370,21 +371,22 @@ function trial_user() {
     read -p "Press Enter..."
 }
 
+# --- REVISI DELETE USER TABLE ---
 function delete_user() {
     clear
-    echo -e "${CYAN}┌─────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│                  DELETE ACCOUNT                         │${NC}"
-    echo -e "${CYAN}├────┬──────────────────┬──────────────────┬──────────────┤${NC}"
-    echo -e "${CYAN}│ NO │       USER       │     PASSWORD     │   EXPIRED    │${NC}"
-    echo -e "${CYAN}├────┼──────────────────┼──────────────────┼──────────────┤${NC}"
+    echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│                 DELETE ACCOUNT                   │${NC}"
+    echo -e "${CYAN}├────┬────────────────────────┬────────────────────┤${NC}"
+    echo -e "${CYAN}│ NO │        PASSWORD        │      EXPIRED       │${NC}"
+    echo -e "${CYAN}├────┼────────────────────────┼────────────────────┤${NC}"
     i=1
     while IFS=: read -r u p e; do
         exp_date=$(date -d @$e +%F)
-        printf "${CYAN}│ %-2s │ %-16s │ %-16s │ %-12s │${NC}\n" "$i" "$u" "$p" "$exp_date"
+        printf "${CYAN}│ %-2s │ %-22s │ %-18s │${NC}\n" "$i" "$p" "$exp_date"
         users[$i]=$u
         ((i++))
     done < $DB
-    echo -e "${CYAN}└────┴──────────────────┴──────────────────┴──────────────┘${NC}"
+    echo -e "${CYAN}└────┴────────────────────────┴────────────────────┘${NC}"
     echo -ne "Select number to delete (0 to cancel): "
     read num
     if [[ "$num" == "0" ]]; then return; fi
@@ -399,21 +401,22 @@ function delete_user() {
     read -p "Press Enter..."
 }
 
+# --- REVISI RENEW USER TABLE ---
 function renew_user() {
     clear
-    echo -e "${CYAN}┌─────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│                   RENEW ACCOUNT                         │${NC}"
-    echo -e "${CYAN}├────┬──────────────────┬──────────────────┬──────────────┤${NC}"
-    echo -e "${CYAN}│ NO │       USER       │     PASSWORD     │   EXPIRED    │${NC}"
-    echo -e "${CYAN}├────┼──────────────────┼──────────────────┼──────────────┤${NC}"
+    echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│                  RENEW ACCOUNT                   │${NC}"
+    echo -e "${CYAN}├────┬────────────────────────┬────────────────────┤${NC}"
+    echo -e "${CYAN}│ NO │        PASSWORD        │      EXPIRED       │${NC}"
+    echo -e "${CYAN}├────┼────────────────────────┼────────────────────┤${NC}"
     i=1
     while IFS=: read -r u p e; do
         exp_date=$(date -d @$e +%F)
-        printf "${CYAN}│ %-2s │ %-16s │ %-16s │ %-12s │${NC}\n" "$i" "$u" "$p" "$exp_date"
+        printf "${CYAN}│ %-2s │ %-22s │ %-18s │${NC}\n" "$i" "$p" "$exp_date"
         users[$i]=$u
         ((i++))
     done < $DB
-    echo -e "${CYAN}└────┴──────────────────┴──────────────────┴──────────────┘${NC}"
+    echo -e "${CYAN}└────┴────────────────────────┴────────────────────┘${NC}"
     echo -ne "Select number to renew (0 to cancel): "
     read num
     if [[ "$num" == "0" ]]; then return; fi
@@ -421,9 +424,6 @@ function renew_user() {
     if [ -n "$target" ]; then
         read -p "Add Days: " d
         grep -v "^$target:" $DB > $DB.tmp
-        # Asumsi user=pass. Jika mau mempertahankan pass lama, kita harus baca dulu
-        # Tapi karena format db hanya u:p:e dan kita replace, kita ambil dari var memory
-        # Namun di loop tadi $p tidak disimpan ke array. Kita baca ulang saja biar aman:
         line=$(grep "^$target:" $DB)
         old_pass=$(echo $line | cut -d: -f2)
         echo "$target:$old_pass:$(($(date +%s) + d * 86400))" >> $DB.tmp
@@ -440,10 +440,10 @@ function list_user() {
     clear
     echo -e "${CYAN}List Accounts:${NC}"
     echo "---------------------------------------------------------"
-    printf "%-20s %-20s %-15s\n" "User" "Password" "Expired"
+    printf "%-25s %-15s\n" "Password" "Expired"
     echo "---------------------------------------------------------"
     while IFS=: read -r u p e; do
-        printf "%-20s %-20s %-15s\n" "$u" "$p" "$(date -d @$e +%F)"
+        printf "%-25s %-15s\n" "$p" "$(date -d @$e +%F)"
     done < $DB
     echo "---------------------------------------------------------"
     read -p "Press Enter..."
