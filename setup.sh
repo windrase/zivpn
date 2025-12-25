@@ -1,7 +1,6 @@
 #!/bin/bash
 # WINTUNELING VPN - PROFESSIONAL EDITION
-# Updated: Delete/Renew shows Password & Exp only
-# Branding: WINTUNELING VPN
+# Features: Strict IP & Expired Check, Dual Notification, User=Pass Logic
 
 # ==========================================
 # CONFIGURATION
@@ -30,9 +29,48 @@ YELLOW='\033[0;33m'
 NC='\033[0m'
 
 # ==========================================
-# 1. SYSTEM PREPARATION
+# 1. IP REGISTER & EXPIRED CHECK
 # ==========================================
 clear
+echo -e "${YELLOW}[INFO] Checking License Registration...${NC}"
+MYIP=$(curl -s ipv4.icanhazip.com)
+LICENSE_DATA=$(curl -s --connect-timeout 5 "$LICENSE_URL")
+
+# Cek apakah IP ada di database
+if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
+    # Ambil Data Expired
+    DATA_CLIENT=$(echo "$LICENSE_DATA" | grep "$MYIP")
+    CLIENT_NAME=$(echo "$DATA_CLIENT" | cut -d: -f2)
+    EXP_DATE=$(echo "$DATA_CLIENT" | cut -d: -f3)
+    TODAY=$(date +%Y-%m-%d)
+
+    # Cek Apakah Sudah Expired
+    if [[ "$TODAY" > "$EXP_DATE" ]]; then
+        echo -e "${RED}⛔ LICENSE EXPIRED!${NC}"
+        echo -e "${RED}Your license expired on: $EXP_DATE${NC}"
+        echo -e "Please Renew Your License to Install."
+        exit 1
+    else
+        echo -e "${GREEN}✅ LICENSE ACTIVE!${NC}"
+        echo -e "Client : $CLIENT_NAME"
+        echo -e "Expired: $EXP_DATE"
+        
+        # Simpan data lokal
+        mkdir -p /etc/wintunnel
+        echo "$CLIENT_NAME" > /etc/wintunnel/client
+        echo "$EXP_DATE" > /etc/wintunnel/exp
+        sleep 2
+    fi
+else
+    echo -e "${RED}⛔ ACCESS DENIED!${NC}"
+    echo -e "${RED}Your IP ($MYIP) is not registered.${NC}"
+    echo -e "Please contact Admin to register."
+    exit 1
+fi
+
+# ==========================================
+# 2. SYSTEM PREPARATION
+# ==========================================
 echo -e "${CYAN}[1/7] Preparing System...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null 2>&1
@@ -52,7 +90,7 @@ if ! command -v node &> /dev/null; then
 fi
 
 # ==========================================
-# 2. INSTALL CORE & API
+# 3. INSTALL CORE & API
 # ==========================================
 echo -e "${CYAN}[2/7] Installing Core...${NC}"
 systemctl stop $SERVICE_VPN >/dev/null 2>&1
@@ -154,7 +192,7 @@ EOF
 iptables -t nat -A PREROUTING -i $INTF -p udp --dport 6000:19999 -j DNAT --to-destination :5667
 
 # ==========================================
-# 3. NOTIFICATION SYSTEM
+# 4. NOTIFICATION SYSTEM
 # ==========================================
 echo -e "${CYAN}[3/7] Installing Notification System...${NC}"
 
@@ -185,7 +223,7 @@ EOF
 chmod +x $BACKUP_BIN
 
 # ==========================================
-# 4. MENU SCRIPT (WINTUNELING EDITION)
+# 5. MENU SCRIPT (FINAL)
 # ==========================================
 echo -e "${CYAN}[4/7] Installing Menu...${NC}"
 
@@ -214,6 +252,7 @@ function send_log() {
     if [ ! -f "$TG_CONFIG" ]; then return; fi
     source "$TG_CONFIG"
     local message="$1"
+    # Menggunakan POST untuk memastikan pesan terkirim
     curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
         -d chat_id="${TG_ID}" \
         -d parse_mode="html" \
@@ -332,8 +371,14 @@ function create_user() {
     sync_config
     
     exp_date=$(date -d @$exp "+%d %b %Y")
-    echo -e "${GREEN}Account Created!${NC}"
     
+    # 1. Output VPS
+    echo -e "${GREEN}SUCCESS! Account Created.${NC}"
+    echo -e "Domain  : $DOMAIN"
+    echo -e "Pass    : $pass"
+    echo -e "Expired : $exp_date"
+    
+    # 2. Telegram Notif
     get_info
     TEXT="<code><b>✅ NEW ACCOUNT CREATED</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -344,7 +389,7 @@ function create_user() {
 <i>By WINTUNELING VPN</i></code>"
     send_log "$TEXT"
     
-    echo -e "Check Telegram for details."
+    echo -e "Notification sent to Telegram."
     read -p "Press Enter..."
 }
 
@@ -357,7 +402,13 @@ function trial_user() {
     echo "$user:$pass:$exp" >> $DB
     sync_config
     
-    echo -e "${GREEN}Trial Created!${NC}"
+    # 1. Output VPS
+    echo -e "${GREEN}SUCCESS! Trial Created.${NC}"
+    echo -e "Domain  : $DOMAIN"
+    echo -e "Pass    : $pass"
+    echo -e "Expired : $mins Minutes"
+    
+    # 2. Telegram Notif
     get_info
     TEXT="<code><b>⏳ TRIAL ACCOUNT CREATED</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -368,10 +419,10 @@ function trial_user() {
 <i>By WINTUNELING VPN</i></code>"
     send_log "$TEXT"
     
+    echo -e "Notification sent to Telegram."
     read -p "Press Enter..."
 }
 
-# --- REVISI DELETE USER TABLE ---
 function delete_user() {
     clear
     echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
@@ -401,7 +452,6 @@ function delete_user() {
     read -p "Press Enter..."
 }
 
-# --- REVISI RENEW USER TABLE ---
 function renew_user() {
     clear
     echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
@@ -488,7 +538,7 @@ END_OF_MENU
 chmod +x $MENU_BIN
 
 # ==========================================
-# 5. LANDING PAGE (PREVIEW)
+# 6. LANDING PAGE (PREVIEW)
 # ==========================================
 echo -e "${CYAN}[5/7] Installing Landing Page...${NC}"
 
@@ -578,7 +628,7 @@ EOF
 chmod +x $LANDING_BIN
 
 # ==========================================
-# 6. FINISHING
+# 7. FINISHING
 # ==========================================
 # Force landing page on login
 sed -i '/landing-page/d' ~/.profile
