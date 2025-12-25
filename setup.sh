@@ -671,7 +671,6 @@ echo -e " Command  : ${BOLD}menu${NC}"
 echo -e " IP VPS   : ${CYAN}$MYIP${NC}"
 echo -e " API Port : ${CYAN}5888${NC}"
 echo -e " API Key  : ${YELLOW}$API_KEY${NC}"
-echo -e " Preview  : ${YELLOW}Auto ON Login${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${YELLOW}Rebooting System in 5 seconds...${NC}"
 sleep 5
