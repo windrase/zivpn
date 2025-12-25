@@ -1,13 +1,11 @@
 #!/bin/bash
-# WINTUNELING VPN - FINAL FIXED VERSION
-# Fixes: Syntax Errors, Hidden Characters, Auto Backup, Clean Widget
+# WINTUNELING VPN - ULTIMATE EDITION
+# Features: Telegram-Style Output, Clean Menu (No Box), Auto Backup, Fix Profile
 
 # ==========================================
-# 0. FIX BROKEN .PROFILE FIRST
+# 0. FIX PROFILE & PERMISSIONS
 # ==========================================
-# Membersihkan file .profile yang rusak agar tidak error saat login/reboot
 cat > /root/.profile << 'EOF'
-# ~/.profile: executed by the command interpreter for login shells.
 if [ "$BASH" ]; then
   if [ -f ~/.bashrc ]; then
     . ~/.bashrc
@@ -35,11 +33,11 @@ LANDING_BIN="/usr/bin/landing-page"
 
 # Colors
 CYAN='\033[0;36m'
-WHITE='\033[0;37m'
-GRAY='\033[0;90m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
+PURPLE='\033[0;35m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
 # ==========================================
@@ -55,36 +53,28 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     CLIENT_NAME=$(echo "$DATA_CLIENT" | cut -d: -f2)
     EXP_DATE=$(echo "$DATA_CLIENT" | cut -d: -f3)
     TODAY=$(date +%Y-%m-%d)
-
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
-        echo -e "${RED}⛔ LICENSE EXPIRED!${NC}"
-        echo -e "${RED}Expired on: $EXP_DATE${NC}"
-        echo -e "${RED}Please Contact t.me/WINTUNELINGVPNN For Renew License: $EXP_DATE${NC}"
-        exit 1
+        echo -e "${RED}⛔ LICENSE EXPIRED: $EXP_DATE${NC}"; exit 1
     else
-        echo -e "${GREEN}✅ LICENSE ACTIVE!${NC}"
-        echo -e "Client : $CLIENT_NAME"
-        echo -e "Expired: $EXP_DATE"
+        echo -e "${GREEN}✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
         mkdir -p /etc/wintunnel
         echo "$CLIENT_NAME" > /etc/wintunnel/client
         echo "$EXP_DATE" > /etc/wintunnel/exp
-        sleep 2
+        sleep 1
     fi
 else
-    echo -e "${RED}⛔ ACCESS DENIED! IP Not Registered.${NC}"
-    exit 1
+    echo -e "${RED}⛔ ACCESS DENIED!${NC}"; exit 1
 fi
 
 # ==========================================
 # 3. SYSTEM PREPARATION
 # ==========================================
-echo -e "${CYAN}[1/5] Preparing System...${NC}"
+echo -e "${CYAN}[1/5] System Setup...${NC}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl zip unzip cron net-tools lsb-release gnupg vnstat bc neofetch >/dev/null 2>&1
 
-systemctl enable vnstat
-systemctl start vnstat
+systemctl enable vnstat; systemctl start vnstat
 INTF=$(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1)
 sed -i "s/Interface \".*\"/Interface \"$INTF\"/g" /etc/vnstat.conf
 systemctl restart vnstat
@@ -94,25 +84,11 @@ if ! command -v node &> /dev/null; then
     apt-get install -y nodejs >/dev/null 2>&1
 fi
 
-# ==========================================
-# 4. INSTALL CORE & API
-# ==========================================
 echo -e "${CYAN}[2/5] Installing Core...${NC}"
 systemctl stop $SERVICE_VPN >/dev/null 2>&1
 mkdir -p $DIR $DIR_API
+if [ -f /etc/xray/domain ]; then DOMAIN_INPUT=$(cat /etc/xray/domain); else DOMAIN_INPUT=$(curl -s ipv4.icanhazip.com); fi
 
-# Domain Logic
-if [ -f /etc/xray/domain ]; then
-    DOMAIN_INPUT=$(cat /etc/xray/domain)
-else
-    if [ -f "$DIR/zivpn.crt" ]; then
-        DOMAIN_INPUT=$(openssl x509 -noout -subject -in $DIR/zivpn.crt | sed -n 's/^.*CN = //p')
-    else
-        DOMAIN_INPUT=$(curl -s ipv4.icanhazip.com)
-    fi
-fi
-
-# Binary Download
 ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
     wget -q https://github.com/zahidbd2/udp-zivpn/releases/download/udp-zivpn_1.4.9/udp-zivpn-linux-amd64 -O $BIN
@@ -121,20 +97,14 @@ else
 fi
 chmod +x $BIN
 
-# Certificate
 if [ ! -f "$DIR/zivpn.crt" ]; then
-    openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
-        -subj "/C=ID/ST=VPN/L=VPN/O=WINTUNNELING/CN=$DOMAIN_INPUT" \
-        -keyout "$DIR/zivpn.key" -out "$DIR/zivpn.crt" >/dev/null 2>&1
+    openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=ID/CN=$DOMAIN_INPUT" -keyout "$DIR/zivpn.key" -out "$DIR/zivpn.crt" >/dev/null 2>&1
 fi
-
-# Config & DB
 if [ ! -f "$CONFIG" ]; then
     echo '{"listen": ":5667", "cert": "'$DIR'/zivpn.crt", "key": "'$DIR'/zivpn.key", "obfs": "zivpn", "auth": {"mode": "passwords", "config": ["default"]}}' > $CONFIG
 fi
 touch $DB
 
-# Service VPN
 cat <<EOF > /etc/systemd/system/$SERVICE_VPN
 [Unit]
 Description=ZIVPN Core
@@ -154,25 +124,18 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 EOF
 
-# API Server
+# API SETUP
 if [ ! -f "$API_KEY_FILE" ]; then openssl rand -hex 3 > $API_KEY_FILE; fi
 cd $DIR_API
 if [ ! -f "package.json" ]; then npm init -y >/dev/null 2>&1; npm install express shelljs body-parser >/dev/null 2>&1; fi
 
 cat << 'EOF' > server.js
-const express = require('express');
-const shell = require('shelljs');
-const fs = require('fs');
-const app = express();
-const port = 5888;
-const API_KEY_FILE = '/etc/zivpn/apikey';
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+const express = require('express'); const shell = require('shelljs'); const fs = require('fs');
+const app = express(); const port = 5888; const API_KEY_FILE = '/etc/zivpn/apikey';
+app.use(express.urlencoded({ extended: true })); app.use(express.json());
 const checkAuth = (req, res, next) => {
-    const auth = req.query.auth || req.body.auth;
-    let validKey = '';
-    try { validKey = fs.readFileSync(API_KEY_FILE, 'utf8').trim(); } catch (e) {}
-    if (auth === validKey && validKey !== '') next(); else res.json({ status: 'error', message: 'API Key Invalid' });
+    let validKey = ''; try { validKey = fs.readFileSync(API_KEY_FILE, 'utf8').trim(); } catch (e) {}
+    if ((req.query.auth || req.body.auth) === validKey && validKey !== '') next(); else res.json({ status: 'error' });
 };
 function sync() { shell.exec('systemctl restart zivpn'); }
 app.listen(port, () => console.log(`API running on ${port}`));
@@ -195,35 +158,9 @@ EOF
 iptables -t nat -A PREROUTING -i $INTF -p udp --dport 6000:19999 -j DNAT --to-destination :5667
 
 # ==========================================
-# 5. BACKUP SYSTEM (AUTO 00:00)
+# 4. MENU SCRIPT (UPDATED OUTPUT)
 # ==========================================
-echo -e "${CYAN}[3/5] Installing Backup System...${NC}"
-
-cat << 'EOF' > $BACKUP_BIN
-#!/bin/bash
-TG_CONFIG="/etc/zivpn/tg_backup.conf"
-if [ ! -f "$TG_CONFIG" ]; then exit 0; fi
-source $TG_CONFIG
-DATE=$(date +%Y-%m-%d)
-IP=$(curl -s ipv4.icanhazip.com)
-FILENAME="backup-$IP-$DATE.zip"
-cd /root
-zip -r $FILENAME /etc/zivpn/user.db /etc/zivpn/config.json /etc/zivpn/apikey /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key > /dev/null 2>&1
-CAPTION="✅ *AUTO BACKUP* %0A📅 Date: $DATE %0A🌐 IP: $IP"
-curl -F chat_id="$TG_ID" -F document=@"$FILENAME" -F caption="$CAPTION" -F parse_mode="Markdown" "https://api.telegram.org/bot$TG_TOKEN/sendDocument" > /dev/null 2>&1
-rm $FILENAME
-EOF
-chmod +x $BACKUP_BIN
-
-# Cronjob Setup
-crontab -l | grep -v "backup-tg" | crontab -
-(crontab -l 2>/dev/null; echo "0 0 * * * /usr/local/bin/backup-tg") | crontab -
-service cron restart
-
-# ==========================================
-# 6. MENU SCRIPT (FINAL CLEAN VERSION)
-# ==========================================
-echo -e "${CYAN}[4/5] Installing Menu...${NC}"
+echo -e "${CYAN}[3/5] Installing Menu...${NC}"
 
 cat << 'END_OF_MENU' > $MENU_BIN
 #!/bin/bash
@@ -235,10 +172,25 @@ TG_CONFIG="$DIR/tg_backup.conf"
 SERVICE="zivpn"
 SERVICE_API="zivpn-api"
 
+# Colors
+NC='\033[0m'
+PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+WHITE='\033[1;37m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-NC='\033[0m'
+BLUE='\033[0;34m'
+
+function send_log() {
+    if [ ! -f "$TG_CONFIG" ]; then return; fi
+    source "$TG_CONFIG"
+    local message="$1"
+    curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+        -d chat_id="${TG_ID}" \
+        -d parse_mode="html" \
+        --data-urlencode text="${message}" > /dev/null 2>&1
+}
 
 function get_info() {
     OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
@@ -265,45 +217,41 @@ function get_info() {
 function show_menu() {
     clear
     get_info
-    echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}".    
-    echo -e "${CYAN}│${NC}              WINTUNELING VPN                ${CYAN}│${NC}"
-    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "OS" "${OS:0:19}" "IP" "$IP"
-    printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "Domain" "${DOMAIN:0:19}" "ISP" "${ISP:0:11}"
-    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "Client" "${CLIENT:0:15}" "EXP" "$EXP_DATE"
-    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "RAM" "$RAM_USED/$RAM_TOTAL MB ($RAM_PERC%)"
-    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "CPU" "$CPU_MODEL"
-    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Uptime" "$UPTIME"
-    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Users" "$USERS Account(s)"
-    echo -e "${CYAN}├────────────────────────┬─────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} Service: %-14s ${CYAN}│${NC} API: %-18s ${CYAN}│${NC}\n" "$STAT_VPN" "$STAT_API"
-    echo -e "${CYAN}├────────────────────────┴─────────────────────────┤${NC}"
-    echo -e "${CYAN}│${NC} [1] Create Account       [2] Create Trial      ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [3] Renew Account        [4] Delete Account    ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [5] List Accounts        [6] Change Domain     ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [7] Backup/Restore       [8] Setup Notif       ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [9] Restart Service      [0] Exit              ${CYAN}│${NC}"
-    echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
-    echo -ne " Select Option: "
+    
+    echo -e "${PURPLE} ╭──────────────────────────────────────────────────╮${NC}"       .
+    echo -e "${PURPLE} │${CYAN}           WINTUNELING ZIVVPN                   ${PURPLE}│${NC}"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────┤${NC}"
+    
+    printf "${PURPLE} │ ${CYAN}%-8s: ${YELLOW}%-18s ${PURPLE}│ ${CYAN}%-4s: ${YELLOW}%-12s ${PURPLE}│${NC}\n" "OS" "${OS:0:18}" "IP" "$IP"
+    printf "${PURPLE} │ ${CYAN}%-8s: ${YELLOW}%-18s ${PURPLE}│ ${CYAN}%-4s: ${YELLOW}%-12s ${PURPLE}│${NC}\n" "Domain" "${DOMAIN:0:18}" "ISP" "${ISP:0:12}"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────┤${NC}"
+    printf "${PURPLE} │ ${CYAN}%-8s: ${YELLOW}%-18s ${PURPLE}│ ${CYAN}%-4s: ${YELLOW}%-12s ${PURPLE}│${NC}\n" "Client" "${CLIENT:0:15}" "EXP" "$EXP_DATE"
+    echo -e "${PURPLE} ├──────────────────────────────────────────────────┤${NC}"
+    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "RAM" "$RAM_USED/$RAM_TOTAL MB ($RAM_PERC%)"
+    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "CPU" "$CPU_MODEL"
+    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "Uptime" "$UPTIME"
+    printf "${PURPLE} │ ${CYAN}%-8s: ${WHITE}%-37s ${PURPLE}│${NC}\n" "Users" "$USERS Account(s)"
+    echo -e "${PURPLE} ├────────────────────────┬─────────────────────────┤${NC}"
+    printf "${PURPLE} │ ${CYAN}Service: %-15s ${PURPLE}│ ${CYAN}API: %-19s ${PURPLE}│${NC}\n" "$STAT_VPN" "$STAT_API"
+    echo -e "${PURPLE} ╰────────────────────────┴─────────────────────────╯${NC}"
+    
+    echo -e ""
+    echo -e "  ${BLUE}[1]${NC} Create Account        ${BLUE}[2]${NC} Create Trial"
+    echo -e "  ${BLUE}[3]${NC} Renew Account         ${BLUE}[4]${NC} Delete Account"
+    echo -e "  ${BLUE}[5]${NC} List Accounts         ${BLUE}[6]${NC} Change Domain"
+    echo -e "  ${BLUE}[7]${NC} Backup/Restore        ${BLUE}[8]${NC} Setup Notif"
+    echo -e "  ${BLUE}[9]${NC} Restart Service       ${BLUE}[0]${NC} Exit"
+    echo -e ""
+    echo -ne "  ${YELLOW}Select Option : ${NC}"
     read opt
     case $opt in
-        1) create_user ;;
-        2) trial_user ;;
-        3) renew_user ;;
-        4) delete_user ;;
-        5) list_user ;;
-        6) change_domain ;;
-        7) backup_menu ;;
-        8) setup_telegram ;;
-        9) systemctl restart $SERVICE; echo "Service Restarted"; sleep 1 ;;
-        0) exit 0 ;;
-        *) echo "Invalid Option"; sleep 1 ;;
+        1) create_user ;; 2) trial_user ;; 3) renew_user ;; 4) delete_user ;;
+        5) list_user ;; 6) change_domain ;; 7) backup_menu ;; 8) setup_telegram ;;
+        9) systemctl restart $SERVICE; echo "Restarted."; sleep 1 ;; 0) exit 0 ;;
+        *) echo "Invalid"; sleep 1 ;;
     esac
 }
 
-# --- FUNCTIONS ---
 function sync_config() {
     PASS_LIST=$(awk -F: '{printf "\"%s\",", $2}' $DB | sed 's/,$//')
     [ -z "$PASS_LIST" ] && PASS_LIST="\"default\""
@@ -315,12 +263,42 @@ function create_user() {
     echo -e "\n${CYAN}[ CREATE ACCOUNT ]${NC}"
     read -p "Password : " pass
     user="$pass"
-    if grep -q "^$user:" $DB; then echo -e "${RED}User/Pass exists!${NC}"; sleep 1; return; fi
+    if grep -q "^$user:" $DB; then echo -e "${RED}Exists!${NC}"; sleep 1; return; fi
     read -p "Exp Days : " days
     exp=$(($(date +%s) + days * 86400))
     echo "$user:$pass:$exp" >> $DB
     sync_config
-    echo -e "${GREEN}Created: $pass${NC}"; read -p "Enter..."
+    
+    # Format Date
+    exp_date=$(date -d @$exp "+%d %b %Y")
+    
+    # Ambil Domain
+    DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
+    [ -z "$DOMAIN" ] && DOMAIN=$(curl -s ipv4.icanhazip.com)
+
+    # Tampilan Output (Mirip Telegram)
+    clear
+    echo -e ""
+    echo -e "${GREEN}✅ ACCOUNT SUCCESS CREATED${NC}"
+    echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "Domain  : ${DOMAIN}"
+    echo -e "Pass    : ${pass}"
+    echo -e "Exp     : ${exp_date}"
+    echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "Terimakasih Sudah Mengunakan Layanan Kami"
+    echo -e ""
+    
+    # Kirim Notif ke Telegram
+    TEXT="<code><b>✅ ACCOUNT SUCCESS CREATED</b>
+━━━━━━━━━━━━━━━━━━━━
+<b>Domain :</b> <code>${DOMAIN}</code>
+<b>Pass   :</b> <code>${pass}</code>
+<b>Exp    :</b> <code>${exp_date}</code>
+━━━━━━━━━━━━━━━━━━━━
+<i>Terimakasih Sudah Mengunakan Layanan Kami</i></code>"
+    send_log "$TEXT"
+
+    read -n 1 -s -r -p "Press [ Enter ] to back to menu"
 }
 
 function trial_user() {
@@ -331,64 +309,69 @@ function trial_user() {
     exp=$(($(date +%s) + mins * 60))
     echo "$user:$pass:$exp" >> $DB
     sync_config
-    echo -e "${GREEN}Trial: $pass ($mins Min)${NC}"; read -p "Enter..."
+    
+    # Ambil Domain
+    DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
+    [ -z "$DOMAIN" ] && DOMAIN=$(curl -s ipv4.icanhazip.com)
+
+    # Tampilan Output (Mirip Telegram)
+    clear
+    echo -e ""
+    echo -e "${YELLOW}⏳ TRIAL ACCOUNT CREATED${NC}"
+    echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "Domain  : ${DOMAIN}"
+    echo -e "Pass    : ${pass}"
+    echo -e "Exp     : ${mins} Minutes"
+    echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "Terimakasih Sudah Mengunakan Layanan Kami"
+    echo -e ""
+
+    # Kirim Notif ke Telegram
+    TEXT="<code><b>⏳ TRIAL ACCOUNT CREATED</b>
+━━━━━━━━━━━━━━━━━━━━
+<b>Domain :</b> <code>${DOMAIN}</code>
+<b>Pass   :</b> <code>${pass}</code>
+<b>Exp    :</b> <code>${mins} Minutes</code>
+━━━━━━━━━━━━━━━━━━━━
+<i>Terimakasih Sudah Mengunakan Layanan Kami</i></code>"
+    send_log "$TEXT"
+
+    read -n 1 -s -r -p "Press [ Enter ] to back to menu"
 }
 
 function delete_user() {
-    clear
-    echo "DELETE ACCOUNT:"
-    i=1
-    while IFS=: read -r u p e; do
-        printf "%-2s. %-15s\n" "$i" "$p"
-        users[$i]=$u
-        ((i++))
-    done < $DB
-    read -p "Number: " num
-    target=${users[$num]}
-    if [ -n "$target" ]; then
-        grep -v "^$target:" $DB > $DB.tmp && mv $DB.tmp $DB
-        sync_config
-        echo "Deleted."; 
-    fi
+    clear; echo "DELETE ACCOUNT:"; i=1
+    while IFS=: read -r u p e; do printf "%-2s. %-15s\n" "$i" "$p"; users[$i]=$u; ((i++)); done < $DB
+    read -p "Num: " num; target=${users[$num]}
+    if [ -n "$target" ]; then grep -v "^$target:" $DB > $DB.tmp && mv $DB.tmp $DB; sync_config; echo "Deleted."; fi
     read -p "Enter..."
 }
 
 function renew_user() {
     clear; echo "RENEW ACCOUNT:"; i=1
-    while IFS=: read -r u p e; do
-        printf "%-2s. %-15s (Exp: %s)\n" "$i" "$p" "$(date -d @$e +%F)"
-        users[$i]=$u; ((i++))
-    done < $DB
-    read -p "Number: " num; target=${users[$num]}
+    while IFS=: read -r u p e; do printf "%-2s. %-15s\n" "$i" "$p"; users[$i]=$u; ((i++)); done < $DB
+    read -p "Num: " num; target=${users[$num]}
     if [ -n "$target" ]; then
         read -p "Add Days: " d
-        grep -v "^$target:" $DB > $DB.tmp
-        line=$(grep "^$target:" $DB); old_pass=$(echo $line | cut -d: -f2)
+        grep -v "^$target:" $DB > $DB.tmp; line=$(grep "^$target:" $DB)
+        old_pass=$(echo $line | cut -d: -f2)
         echo "$target:$old_pass:$(($(date +%s) + d * 86400))" >> $DB.tmp
-        mv $DB.tmp $DB; sync_config
-        echo "Renewed."
-    fi
-    read -p "Enter..."
+        mv $DB.tmp $DB; sync_config; echo "Renewed."
+    fi; read -p "Enter..."
 }
-
-function list_user() {
-    clear; echo "ACCOUNTS:"; cat $DB; read -p "Enter..."
-}
-
+function list_user() { clear; echo "LIST:"; cat $DB; read -p "Enter..."; }
 function change_domain() {
     read -p "New Domain: " d
     openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=ID/CN=$d" -keyout $DIR/zivpn.key -out $DIR/zivpn.crt >/dev/null 2>&1
     systemctl restart $SERVICE; echo "Done."; read -p "Enter..."
 }
-
 function backup_menu() {
-    echo "1) Backup Now"; echo "2) Restore URL"
+    echo "1) Backup Telegram"; echo "2) Restore URL"
     read -p "Opt: " c
-    if [ "$c" == "1" ]; then /usr/local/bin/backup-tg; echo "Backup Sent."; fi
+    if [ "$c" == "1" ]; then /usr/local/bin/backup-tg; echo "Sent."; fi
     if [ "$c" == "2" ]; then read -p "URL: " u; wget -O backup.zip "$u" && unzip -o backup.zip -d / && systemctl restart $SERVICE; echo "Restored."; fi
     read -p "Enter..."
 }
-
 function setup_telegram() {
     read -p "Bot Token: " t; read -p "Chat ID: " c
     echo "TG_TOKEN='$t'" > $TG_CONFIG; echo "TG_ID='$c'" >> $TG_CONFIG
@@ -400,31 +383,34 @@ END_OF_MENU
 chmod +x $MENU_BIN
 
 # ==========================================
-# 7. LANDING PAGE
+# 5. BACKUP & LANDING PAGE
 # ==========================================
-echo -e "${CYAN}[5/5] Installing Landing Page...${NC}"
+echo -e "${CYAN}[4/5] Finalizing...${NC}"
+
+cat << 'EOF' > $BACKUP_BIN
+#!/bin/bash
+TG_CONFIG="/etc/zivpn/tg_backup.conf"
+if [ ! -f "$TG_CONFIG" ]; then exit 0; fi
+source $TG_CONFIG
+DATE=$(date +%Y-%m-%d); IP=$(curl -s ipv4.icanhazip.com)
+FILENAME="backup-$IP-$DATE.zip"
+cd /root; zip -r $FILENAME /etc/zivpn/user.db /etc/zivpn/config.json /etc/zivpn/apikey /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key >/dev/null 2>&1
+curl -F chat_id="$TG_ID" -F document=@"$FILENAME" -F caption="✅ Backup $IP $DATE" "https://api.telegram.org/bot$TG_TOKEN/sendDocument" >/dev/null 2>&1
+rm $FILENAME
+EOF
+chmod +x $BACKUP_BIN
+
+# Auto Backup 00:00
+crontab -l | grep -v "backup-tg" | crontab -
+(crontab -l 2>/dev/null; echo "0 0 * * * /usr/local/bin/backup-tg") | crontab -
+service cron restart
 
 cat << 'EOF' > $LANDING_BIN
 #!/bin/bash
-CYAN='\033[0;36m'
-NC='\033[0m'
-DIR="/etc/zivpn"
-DB="/etc/zivpn/user.db"
-DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
-[ -z "$DOMAIN" ] && DOMAIN="No Domain"
-IP=$(curl -s ipv4.icanhazip.com)
-CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "User")
-UPTIME=$(uptime -p | sed 's/up //')
-USERS=$(wc -l < $DB 2>/dev/null || echo "0")
+CYAN='\033[0;36m'; NC='\033[0m'
 clear
-echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC}             WINTUNELING VPN                 ${CYAN}│${NC}"
-echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
-printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "IP" "$IP"
-printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Domain" "${DOMAIN:0:30}"
-printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Client" "${CLIENT:0:30}"
-printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Uptime" "$UPTIME"
-printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Users" "$USERS Active"
+echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"   .
+echo -e "${CYAN}│${NC}        WINTUNELING ZIVPVPN SERVER              ${CYAN}│${NC}"
 echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
 echo -e ""
 echo -e "${CYAN}      >>> PRESS [ ENTER ] TO ENTER MENU <<<${NC}"
@@ -433,16 +419,11 @@ menu
 EOF
 chmod +x $LANDING_BIN
 
-# ==========================================
-# 8. FINISHING & REBOOT
-# ==========================================
-# Set landing page agar muncul saat login
+# Set Landing Page in Profile
 if ! grep -q "landing-page" /root/.profile; then
 cat >> /root/.profile << 'EOF'
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
-    if [ -f "/usr/bin/landing-page" ]; then
-        /usr/bin/landing-page
-    fi
+    if [ -f "/usr/bin/landing-page" ]; then /usr/bin/landing-page; fi
 fi
 EOF
 fi
@@ -455,7 +436,8 @@ clear
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${YELLOW}        INSTALLATION SUCCESSFUL!         ${NC}"
 echo -e "${GREEN}=========================================${NC}"
+echo -e " Menu Style  : Neon & Open Box"
 echo -e " Command     : menu"
-echo -e " Rebooting 5s..."
+echo -e " Rebooting in 5s..."
 sleep 5
 reboot
