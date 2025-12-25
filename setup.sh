@@ -207,10 +207,8 @@ echo -e "${GREEN}✅ Auto Backup scheduled at 00:00${NC}"
 # ==========================================
 echo -e "${CYAN}[4/7] Installing Menu...${NC}"
 
-cat << 'END_OF_MENU' > $MENU_BIN
+cat << 'END_OF_MENU' > /usr/local/bin/menu
 #!/bin/bash
-# ZIVPN MENU - CLEAN EDITION
-
 DIR="/etc/zivpn"
 DB="$DIR/user.db"
 CONFIG="$DIR/config.json"
@@ -219,108 +217,57 @@ TG_CONFIG="$DIR/tg_backup.conf"
 SERVICE="zivpn"
 SERVICE_API="zivpn-api"
 
-# Colors
 CYAN='\033[0;36m'
-WHITE='\033[0;37m'
-GRAY='\033[0;90m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
-YELLOW='\033[0;33m'
-
-function send_log() {
-    if [ ! -f "$TG_CONFIG" ]; then return; fi
-    source "$TG_CONFIG"
-    local message="$1"
-    curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
-        -d chat_id="${TG_ID}" \
-        -d parse_mode="html" \
-        --data-urlencode text="${message}" > /dev/null 2>&1
-}
 
 function get_info() {
     OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //')
-    ISP=$(curl -s ip-api.com/json | jq -r .isp)
     IP=$(curl -s ipv4.icanhazip.com)
-    HOST=$(hostname)
-    [ -z "$HOST" ] && HOST="$IP"
-    DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt | sed -n 's/^.*CN = //p')
-    
-    CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "ZIVPN-User")
+    DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
+    [ -z "$DOMAIN" ] && DOMAIN="No Domain"
+    ISP=$(curl -s ip-api.com/json | jq -r .isp)
+    CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "User")
     EXP_DATE=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Lifetime")
-    d1=$(date -d "$EXP_DATE" +%s 2>/dev/null)
-    d2=$(date -d "$(date +%Y-%m-%d)" +%s)
-    if [[ ! -z "$d1" ]]; then
-        diff=$(( ($d1 - $d2) / 86400 ))
-        [ $diff -lt 0 ] && DAYS_LEFT="Expired" || DAYS_LEFT="$diff days"
-    else
-        DAYS_LEFT="-"
-    fi
-
     RAM_USED=$(free -m | awk 'NR==2{print $3}')
     RAM_TOTAL=$(free -m | awk 'NR==2{print $2}')
     RAM_PERC=$(awk "BEGIN {printf \"%.0f\", $RAM_USED/$RAM_TOTAL*100}")
-    DISK_USED=$(df -h / | awk 'NR==2{print $3}')
-    DISK_TOTAL=$(df -h / | awk 'NR==2{print $2}')
-    
     CPU_MODEL=$(lscpu | grep "Model name" | cut -d: -f2 | sed 's/^ //;s/  */ /g' | cut -c1-20)
     UPTIME=$(uptime -p | sed 's/up //')
-    
-    INTF=$(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1)
-    VN_TODAY=$(vnstat -i $INTF --oneline | awk -F';' '{print $6}')
-    VN_MONTH=$(vnstat -i $INTF --oneline | awk -F';' '{print $11}')
-    [ -z "$VN_TODAY" ] && VN_TODAY="0 B"
-    [ -z "$VN_MONTH" ] && VN_MONTH="0 B"
-    
     USERS=$(wc -l < $DB 2>/dev/null || echo "0")
-    API_KEY=$(cat $API_KEY_FILE 2>/dev/null)
-
-    if systemctl is-active --quiet $SERVICE; then STAT_VPN="${GREEN}ON${NC}"; else STAT_VPN="${RED}OFF${NC}"; fi
-    if systemctl is-active --quiet $SERVICE_API; then STAT_API="${GREEN}ON${NC}"; else STAT_API="${RED}OFF${NC}"; fi
 }
 
 function show_menu() {
     clear
     get_info
     echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│${NC}                WINTUNELING VPN                   ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}              WINTUNELING VPN PANEL               ${CYAN}│${NC}"
     echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
     printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "OS" "${OS:0:19}" "IP" "$IP"
     printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "Domain" "${DOMAIN:0:19}" "ISP" "${ISP:0:11}"
     echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "Client" "${CLIENT:0:15}" "EXP" "$DAYS_LEFT"
-    printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "Traffic" "$VN_TODAY" "Total" "$VN_MONTH"
+    printf "${CYAN}│${NC} %-8s: %-19s│ %-5s: %-11s${CYAN}│${NC}\n" "Client" "${CLIENT:0:15}" "EXP" "$EXP_DATE"
     echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "RAM" "$RAM_USED / $RAM_TOTAL MB ($RAM_PERC%)"
+    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "RAM" "$RAM_USED/$RAM_TOTAL MB ($RAM_PERC%)"
     printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "CPU" "$CPU_MODEL"
     printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Uptime" "$UPTIME"
     printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "Users" "$USERS Account(s)"
-    printf "${CYAN}│${NC} %-8s: %-37s${CYAN}│${NC}\n" "API Key" "${API_KEY:0:25}..."
-    echo -e "${CYAN}├────────────────────────┬─────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} Service: %-14s ${CYAN}│${NC} API: %-18s ${CYAN}│${NC}\n" "$STAT_VPN" "$STAT_API"
-    echo -e "${CYAN}├────────────────────────┴─────────────────────────┤${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
     echo -e "${CYAN}│${NC} [1] Create Account       [2] Create Trial      ${CYAN}│${NC}"
     echo -e "${CYAN}│${NC} [3] Renew Account        [4] Delete Account    ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [5] List Accounts        [6] Change Domain     ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [7] Backup/Restore       [8] Setup Notif       ${CYAN}│${NC}"
-    echo -e "${CYAN}│${NC} [9] Restart Service      [0] Exit              ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC} [0] Exit                                       ${CYAN}│${NC}"
     echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
     echo -ne " Select Option: "
     read opt
     case $opt in
-        1) create_user ;;
-        2) trial_user ;;
-        3) renew_user ;;
-        4) delete_user ;;
-        5) list_user ;;
-        6) change_domain ;;
-        7) backup_menu ;;
-        8) setup_telegram ;;
-        9) systemctl restart $SERVICE; echo "Service Restarted"; sleep 1 ;;
         0) exit 0 ;;
         *) echo "Invalid Option"; sleep 1 ;;
     esac
 }
+while true; do show_menu; done
+END_OF_MENU
+chmod +x /usr/local/bin/menu
 
 function sync_config() {
     PASS_LIST=$(awk -F: '{printf "\"%s\",", $2}' $DB | sed 's/,$//')
@@ -483,23 +430,19 @@ END_OF_MENU
 
 chmod +x $MENU_BIN
 
-# ==========================================
-# 6. LANDING PAGE (UPDATE)
-# ==========================================
-cat > $LANDING_BIN << 'EOF'
+# LANDING PAGE
+cat << 'EOF' > /usr/bin/landing-page
 #!/bin/bash
 CYAN='\033[0;36m'
 NC='\033[0m'
 DIR="/etc/zivpn"
-DB="$DIR/user.db"
-
-# Minimal Info Fetch
-DOMAIN=$(cat /etc/xray/domain 2>/dev/null || openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
+DB="/etc/zivpn/user.db"
+DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
+[ -z "$DOMAIN" ] && DOMAIN="No Domain"
 IP=$(curl -s ipv4.icanhazip.com)
 CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "User")
 UPTIME=$(uptime -p | sed 's/up //')
 USERS=$(wc -l < $DB 2>/dev/null || echo "0")
-
 clear
 echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
 echo -e "${CYAN}│${NC}                WINTUNELING VPN                  ${CYAN}│${NC}"
@@ -515,12 +458,10 @@ echo -e "${CYAN}      >>> PRESS [ ENTER ] TO ENTER MENU <<<${NC}"
 read -n 1 -s -r -p ""
 menu
 EOF
+chmod +x /usr/bin/landing-page
 
-chmod +x $LANDING_BIN
 
-# ==========================================
-# 7. FINISHING
-# ==========================================
+# FINISHING
 sed -i '/landing-page/d' ~/.profile
 cat >> ~/.profile << 'EOF'
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
