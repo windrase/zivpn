@@ -315,7 +315,7 @@ EOF
 chmod +x $BACKUP_BIN
 
 # 7. MENU PREMIUM (DASHBOARD STYLE)
-echo -e "${CYAN}[6/7] Installing Premium Menu...${NC}"
+echo -e "${CYAN}[6/7] Installing Script Menu...${NC}"
 
 cat << 'EOF' > $MENU_BIN
 #!/bin/bash
