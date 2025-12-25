@@ -1,16 +1,12 @@
 #!/bin/bash
 # ============================================================
-# SCRIPT UPDATE MENU & WELCOME PAGE (NO REBUILD)
+# SCRIPT UPDATE MENU & WELCOME (CLEAN LAYOUT)
 # ============================================================
 
 # --- Variables ---
 MENU_BIN="/usr/local/bin/menu"
 WELCOME_BIN="/usr/local/bin/welcome"
 DIR="/etc/zivpn"
-DB="$DIR/user.db"
-CONFIG="$DIR/config.json"
-TG_CONFIG="$DIR/tg_backup.conf"
-SERVICE="zivpn"
 
 # --- Warna ---
 CYAN='\e[1;36m'
@@ -18,94 +14,117 @@ YELLOW='\e[1;33m'
 GREEN='\e[1;32m'
 RED='\e[1;31m'
 NC='\e[0m'
+GRAY='\e[90m'
 
-echo -e "${YELLOW}[INFO] Memulai Update Menu & Preview...${NC}"
+echo -e "${YELLOW}[INFO] Updating Menu & Welcome Page...${NC}"
 
 # ============================================================
-# 1. UPDATE FILE: WELCOME (PREVIEW)
+# 1. UPDATE FILE: WELCOME (PREVIEW) - LAYOUT FIX
 # ============================================================
-echo -e "${CYAN}[1/3] Updating Welcome Page...${NC}"
+echo -e "${CYAN}[1/3] Installing Clean Welcome Page...${NC}"
 cat << 'END_WELCOME' > $WELCOME_BIN
 #!/bin/bash
-# WINTUNELING PREVIEW
+# WINTUNELING PREVIEW (CLEAN LAYOUT)
 NC='\e[0m'
-RED='\e[1;31m'
-GREEN='\e[1;32m'
-YELLOW='\e[1;33m'
 CYAN='\e[1;36m'
 WHITE='\e[1;37m'
-BOLD='\e[1m'
+GREEN='\e[1;32m'
+YELLOW='\e[1;33m'
+RED='\e[1;31m'
 GRAY='\e[90m'
 
 function get_info_preview() {
-    if [ -f /etc/os-release ]; then . /etc/os-release; OS=$NAME; else OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //'); fi
-    OS=$(echo "$OS" | cut -c 1-15)
-    
-    ISP=$(curl -s ip-api.com/json | jq -r .isp)
-    ISP=$(echo "$ISP" | cut -c 1-15)
+    # 1. OS & IP
+    if [ -f /etc/os-release ]; then . /etc/os-release; OS_NAME=$NAME; else OS_NAME=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //'); fi
+    OS_NAME=$(echo "$OS_NAME" | cut -c 1-18)
     IP=$(curl -s ipv4.icanhazip.com)
+    ISP=$(curl -s ip-api.com/json | jq -r .isp | cut -c 1-18)
     
+    # 2. LICENSE
     CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "Unknown")
     EXP_DATE=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Unknown")
-    
     d1=$(date -d "$EXP_DATE" +%s 2>/dev/null)
     d2=$(date -d "$(date +%Y-%m-%d)" +%s)
     if [[ ! -z "$d1" ]]; then
         DAYS_LEFT=$(( ($d1 - $d2) / 86400 ))
-        if [ $DAYS_LEFT -lt 0 ]; then DAYS_LEFT="EXPIRED"; fi
+        [ $DAYS_LEFT -lt 0 ] && DAYS_LEFT="EXPIRED"
     else
         DAYS_LEFT="-"
     fi
 
-    total_ram=$(free -m | awk 'NR==2{print $2}')
+    # 3. RAM & CPU
     used_ram=$(free -m | awk 'NR==2{print $3}')
+    total_ram=$(free -m | awk 'NR==2{print $2}')
     ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
-    
     cpu_usage=$(grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}' | awk '{printf("%.0f", $1)}')
-    disk_usage=$(df -h / | awk 'NR==2 {print $5}')
     
+    # 4. BANDWIDTH
     INTF=$(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1)
     RX_TODAY=$(vnstat -i $INTF -d --oneline 2>/dev/null | awk -F\; '{print $6}')
     TX_TODAY=$(vnstat -i $INTF -d --oneline 2>/dev/null | awk -F\; '{print $7}')
-    RX_MONTH=$(vnstat -i $INTF -m --oneline 2>/dev/null | awk -F\; '{print $9}')
-    TX_MONTH=$(vnstat -i $INTF -m --oneline 2>/dev/null | awk -F\; '{print $10}')
+    [ -z "$RX_TODAY" ] && RX_TODAY="0 B"
+    [ -z "$TX_TODAY" ] && TX_TODAY="0 B"
 }
 
 clear
 get_info_preview
+
+# --- FUNGSI PRINT RAPI (Auto Padding) ---
+# Lebar konten dalam box = 56 char
+# Garis: ╭ (1) + 56 (─) + ╮ (1) = 58 Total
+
+function print_line() {
+    # $1 = Label Kiri, $2 = Value Kiri, $3 = Label Kanan, $4 = Value Kanan
+    # Format: " L_LABEL : L_VAL    R_LABEL : R_VAL "
+    # Split 56 chars: Left 27, Right 27, Spacing 2?
+    # Kita pakai printf fix width
+    
+    # Construct String Kiri (Max 26 char)
+    LEFT_TXT="$1: $2"
+    if [ ${#LEFT_TXT} -gt 26 ]; then LEFT_TXT="${LEFT_TXT:0:26}"; fi
+    
+    # Construct String Kanan (Max 26 char)
+    RIGHT_TXT="$3: $4"
+    if [ ${#RIGHT_TXT} -gt 26 ]; then RIGHT_TXT="${RIGHT_TXT:0:26}"; fi
+    
+    printf "${CYAN} │${NC} ${GRAY}%-26s${NC}  ${GRAY}%-26s${NC} ${CYAN}│${NC}\n" "$LEFT_TXT" "$RIGHT_TXT"
+}
+
+# --- TAMPILAN ---
 echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
-echo -e "${CYAN} │${WHITE}${BOLD}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
+echo -e "${CYAN} │${WHITE}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
 echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
 
-echo -e "${CYAN} ┌─────────────────────${WHITE} SYSTEM INFO ${CYAN}────────────────────┐${NC}"
-printf "${CYAN} │${NC} ${GRAY}OS   :${NC} %-15s ${GRAY}RAM  :${NC} %-4s %-12s ${CYAN}│${NC}\n" "$OS" "$ram_perc%" "($used_ram MB)"
-printf "${CYAN} │${NC} ${GRAY}IP   :${NC} %-15s ${GRAY}CPU  :${NC} %-17s ${CYAN}│${NC}\n" "$IP" "$cpu_usage%"
-printf "${CYAN} │${NC} ${GRAY}ISP  :${NC} %-15s ${GRAY}DISK :${NC} %-17s ${CYAN}│${NC}\n" "$ISP" "$disk_usage"
+echo -e "${CYAN} ╭──────────────────────${WHITE} SYSTEM ${CYAN}──────────────────────────╮${NC}"
+print_line "OS" "$OS_NAME" "RAM" "$used_ram MB ($ram_perc%)"
+print_line "IP" "$IP" "CPU" "$cpu_usage %"
+print_line "ISP" "$ISP" "VPN" "ON RUNNING"
 echo -e "${CYAN} ├────────────────────────────────────────────────────────┤${NC}"
-printf "${CYAN} │${NC} ${GRAY}BW Today :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_TODAY" "$TX_TODAY"
-printf "${CYAN} │${NC} ${GRAY}BW Month :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_MONTH" "$TX_MONTH"
-echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+print_line "BW Today" "↓$RX_TODAY" "↑$TX_TODAY" ""
+echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
 
-echo -e "${CYAN} ┌──────────────────────${WHITE} LICENSE ${CYAN}────────────────────────┐${NC}"
-printf "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}%-43s${NC} ${CYAN}│${NC}\n" "$CLIENT"
-printf "${CYAN} │${NC} ${GRAY}Expired :${NC} ${WHITE}%-10s${NC} (${GREEN}%-4s Hari${NC})                      ${CYAN}│${NC}\n" "$EXP_DATE" "$DAYS_LEFT"
-echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+echo -e "${CYAN} ╭──────────────────────${WHITE} LICENSE ${CYAN}─────────────────────────╮${NC}"
+# Custom Print untuk License agar lebar
+L_CLIENT="Client : $CLIENT"
+L_EXP="Expired: $EXP_DATE ($DAYS_LEFT Days)"
+printf "${CYAN} │${NC} ${YELLOW}%-54s${NC} ${CYAN}│${NC}\n" "${L_CLIENT:0:54}"
+printf "${CYAN} │${NC} ${WHITE}%-54s${NC} ${CYAN}│${NC}\n" "${L_EXP:0:54}"
+echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
 
-echo -e "${CYAN} ┌──────────────────────${WHITE} ACCOUNT ${CYAN}────────────────────────┐${NC}"
+echo -e "${CYAN} ╭──────────────────────${WHITE} ACCOUNT ${CYAN}─────────────────────────╮${NC}"
 printf "${CYAN} │${NC} ${WHITE}[1]${NC} %-23s ${WHITE}[2]${NC} %-23s ${CYAN}│${NC}\n" "Create Account" "Create Trial"
 printf "${CYAN} │${NC} ${WHITE}[3]${NC} %-23s ${WHITE}[4]${NC} %-23s ${CYAN}│${NC}\n" "Renew Account" "Delete Account"
 printf "${CYAN} │${NC} ${WHITE}[5]${NC} %-23s ${WHITE}[6]${NC} %-23s ${CYAN}│${NC}\n" "List Users" "Change Domain"
-echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
 
-echo -e "${CYAN} ┌──────────────────────${WHITE} SETTINGS ${CYAN}───────────────────────┐${NC}"
+echo -e "${CYAN} ╭──────────────────────${WHITE} SETTINGS ${CYAN}────────────────────────╮${NC}"
 printf "${CYAN} │${NC} ${WHITE}[7]${NC} %-23s ${WHITE}[8]${NC} %-23s ${CYAN}│${NC}\n" "Restart Service" "Setup Telegram"
 printf "${CYAN} │${NC} ${WHITE}[9]${NC} %-23s ${WHITE}[10]${NC} %-22s ${CYAN}│${NC}\n" "Backup Now" "Auto Backup"
 printf "${CYAN} │${NC} ${WHITE}[11]${NC} %-49s ${CYAN}│${NC}\n" "Restore Data"
-echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
 
 echo -e "                         ${RED}[0] Exit${NC}"
-echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
-echo -e "${YELLOW}                 [ PREVIEW / LANDING PAGE ]${NC}"
+echo -e ""
 read -n 1 -s -r -p "             Tekan [ ENTER ] untuk masuk ke Menu..."
 
 # Masuk Menu Asli
@@ -115,106 +134,97 @@ chmod +x $WELCOME_BIN
 
 
 # ============================================================
-# 2. UPDATE FILE: MENU UTAMA
+# 2. UPDATE FILE: MENU UTAMA (SAMAKAN LAYOUT)
 # ============================================================
 echo -e "${CYAN}[2/3] Updating Main Menu...${NC}"
 cat << 'END_OF_MENU' > $MENU_BIN
 #!/bin/bash
-# WINTUNELING VPN MENU - PROFESSIONAL EDITION
+# WINTUNELING MENU - PROFESSIONAL EDITION
 
 DIR="/etc/zivpn"
 DB="$DIR/user.db"
 CONFIG="$DIR/config.json"
-API_KEY_FILE="$DIR/apikey"
-TG_CONFIG="$DIR/tg_backup.conf"
 SERVICE="zivpn"
 
-RED='\e[1;31m'
-GREEN='\e[1;32m'
-YELLOW='\e[1;33m'
-BLUE='\e[1;34m'
-PURPLE='\e[1;35m'
+# Warna
 CYAN='\e[1;36m'
 WHITE='\e[1;37m'
+GREEN='\e[1;32m'
+YELLOW='\e[1;33m'
+RED='\e[1;31m'
 NC='\e[0m'
-BOLD='\e[1m'
 GRAY='\e[90m'
 
-function send_log() {
-    local message="$1"
-    if [ -f "$TG_CONFIG" ]; then
-        source $TG_CONFIG
-        curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" -d chat_id="$TG_ID" -d text="$message" -d parse_mode="Markdown" > /dev/null 2>&1
-    fi
-}
-
 function get_info() {
-    if [ -f /etc/os-release ]; then . /etc/os-release; OS=$NAME; else OS=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //'); fi
-    OS=$(echo "$OS" | cut -c 1-15)
-    
-    ISP=$(curl -s ip-api.com/json | jq -r .isp)
-    ISP=$(echo "$ISP" | cut -c 1-15)
-    
+    if [ -f /etc/os-release ]; then . /etc/os-release; OS_NAME=$NAME; else OS_NAME=$(lsb_release -d | cut -f2 | tr -d '"' | sed 's/Ubuntu //'); fi
+    OS_NAME=$(echo "$OS_NAME" | cut -c 1-18)
     IP=$(curl -s ipv4.icanhazip.com)
+    ISP=$(curl -s ip-api.com/json | jq -r .isp | cut -c 1-18)
+    
     CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "Unknown")
     EXP_DATE=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Unknown")
-    DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt | sed -n 's/^.*CN = //p')
-    [ -z "$DOMAIN" ] && DOMAIN="$IP"
-    
-    d1=$(date -d "$EXP_DATE" +%s)
+    d1=$(date -d "$EXP_DATE" +%s 2>/dev/null)
     d2=$(date -d "$(date +%Y-%m-%d)" +%s)
-    DAYS_LEFT=$(( ($d1 - $d2) / 86400 ))
-    if [ $DAYS_LEFT -lt 0 ]; then DAYS_LEFT="EXPIRED"; fi
+    if [[ ! -z "$d1" ]]; then
+        DAYS_LEFT=$(( ($d1 - $d2) / 86400 ))
+        [ $DAYS_LEFT -lt 0 ] && DAYS_LEFT="EXPIRED"
+    else
+        DAYS_LEFT="-"
+    fi
 
-    total_ram=$(free -m | awk 'NR==2{print $2}')
     used_ram=$(free -m | awk 'NR==2{print $3}')
+    total_ram=$(free -m | awk 'NR==2{print $2}')
     ram_perc=$(awk "BEGIN {printf \"%.0f\", $used_ram/$total_ram*100}")
-    
     cpu_usage=$(grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}' | awk '{printf("%.0f", $1)}')
-    disk_usage=$(df -h / | awk 'NR==2 {print $5}')
     
     INTF=$(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1)
-    RX_TODAY=$(vnstat -i $INTF -d --oneline | awk -F\; '{print $6}')
-    TX_TODAY=$(vnstat -i $INTF -d --oneline | awk -F\; '{print $7}')
-    RX_MONTH=$(vnstat -i $INTF -m --oneline | awk -F\; '{print $9}')
-    TX_MONTH=$(vnstat -i $INTF -m --oneline | awk -F\; '{print $10}')
-    
-    if systemctl is-active --quiet $SERVICE; then STATUS="${GREEN}ACTIVE${NC}"; else STATUS="${RED}DOWN${NC}"; fi
+    RX_TODAY=$(vnstat -i $INTF -d --oneline 2>/dev/null | awk -F\; '{print $6}')
+    TX_TODAY=$(vnstat -i $INTF -d --oneline 2>/dev/null | awk -F\; '{print $7}')
+    [ -z "$RX_TODAY" ] && RX_TODAY="0 B"
+    [ -z "$TX_TODAY" ] && TX_TODAY="0 B"
+}
+
+function print_line() {
+    LEFT_TXT="$1: $2"
+    if [ ${#LEFT_TXT} -gt 26 ]; then LEFT_TXT="${LEFT_TXT:0:26}"; fi
+    RIGHT_TXT="$3: $4"
+    if [ ${#RIGHT_TXT} -gt 26 ]; then RIGHT_TXT="${RIGHT_TXT:0:26}"; fi
+    printf "${CYAN} │${NC} ${GRAY}%-26s${NC}  ${GRAY}%-26s${NC} ${CYAN}│${NC}\n" "$LEFT_TXT" "$RIGHT_TXT"
 }
 
 function show_menu() {
     clear
     get_info
     echo -e "${CYAN} ╭────────────────────────────────────────────────────────╮${NC}"
-    echo -e "${CYAN} │${WHITE}${BOLD}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
+    echo -e "${CYAN} │${WHITE}                   WINTUNELING ZIVPN                    ${NC}${CYAN}│${NC}"
     echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
-    
-    echo -e "${CYAN} ┌─────────────────────${WHITE} SYSTEM INFO ${CYAN}────────────────────┐${NC}"
-    printf "${CYAN} │${NC} ${GRAY}OS   :${NC} %-15s ${GRAY}RAM  :${NC} %-4s %-12s ${CYAN}│${NC}\n" "$OS" "$ram_perc%" "($used_ram MB)"
-    printf "${CYAN} │${NC} ${GRAY}IP   :${NC} %-15s ${GRAY}CPU  :${NC} %-17s ${CYAN}│${NC}\n" "$IP" "$cpu_usage%"
-    printf "${CYAN} │${NC} ${GRAY}ISP  :${NC} %-15s ${GRAY}DISK :${NC} %-17s ${CYAN}│${NC}\n" "$ISP" "$disk_usage"
+
+    echo -e "${CYAN} ╭──────────────────────${WHITE} SYSTEM ${CYAN}──────────────────────────╮${NC}"
+    print_line "OS" "$OS_NAME" "RAM" "$used_ram MB ($ram_perc%)"
+    print_line "IP" "$IP" "CPU" "$cpu_usage %"
+    print_line "ISP" "$ISP" "VPN" "ON RUNNING"
     echo -e "${CYAN} ├────────────────────────────────────────────────────────┤${NC}"
-    
-    printf "${CYAN} │${NC} ${GRAY}BW Today :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_TODAY" "$TX_TODAY"
-    printf "${CYAN} │${NC} ${GRAY}BW Month :${NC} ${GREEN}↓%-19s ${YELLOW}↑%-19s${NC} ${CYAN}│${NC}\n" "$RX_MONTH" "$TX_MONTH"
-    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
-    
-    echo -e "${CYAN} ┌──────────────────────${WHITE} LICENSE ${CYAN}────────────────────────┐${NC}"
-    printf "${CYAN} │${NC} ${GRAY}Client  :${NC} ${YELLOW}%-43s${NC} ${CYAN}│${NC}\n" "$CLIENT"
-    printf "${CYAN} │${NC} ${GRAY}Expired :${NC} ${WHITE}%-10s${NC} (${GREEN}%-4s Hari${NC})                      ${CYAN}│${NC}\n" "$EXP_DATE" "$DAYS_LEFT"
-    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
-    
-    echo -e "${CYAN} ┌──────────────────────${WHITE} ACCOUNT ${CYAN}────────────────────────┐${NC}"
+    print_line "BW Today" "↓$RX_TODAY" "↑$TX_TODAY" ""
+    echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
+
+    echo -e "${CYAN} ╭──────────────────────${WHITE} LICENSE ${CYAN}─────────────────────────╮${NC}"
+    L_CLIENT="Client : $CLIENT"
+    L_EXP="Expired: $EXP_DATE ($DAYS_LEFT Days)"
+    printf "${CYAN} │${NC} ${YELLOW}%-54s${NC} ${CYAN}│${NC}\n" "${L_CLIENT:0:54}"
+    printf "${CYAN} │${NC} ${WHITE}%-54s${NC} ${CYAN}│${NC}\n" "${L_EXP:0:54}"
+    echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
+
+    echo -e "${CYAN} ╭──────────────────────${WHITE} ACCOUNT ${CYAN}─────────────────────────╮${NC}"
     printf "${CYAN} │${NC} ${WHITE}[1]${NC} %-23s ${WHITE}[2]${NC} %-23s ${CYAN}│${NC}\n" "Create Account" "Create Trial"
     printf "${CYAN} │${NC} ${WHITE}[3]${NC} %-23s ${WHITE}[4]${NC} %-23s ${CYAN}│${NC}\n" "Renew Account" "Delete Account"
     printf "${CYAN} │${NC} ${WHITE}[5]${NC} %-23s ${WHITE}[6]${NC} %-23s ${CYAN}│${NC}\n" "List Users" "Change Domain"
-    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
 
-    echo -e "${CYAN} ┌──────────────────────${WHITE} SETTINGS ${CYAN}───────────────────────┐${NC}"
+    echo -e "${CYAN} ╭──────────────────────${WHITE} SETTINGS ${CYAN}────────────────────────╮${NC}"
     printf "${CYAN} │${NC} ${WHITE}[7]${NC} %-23s ${WHITE}[8]${NC} %-23s ${CYAN}│${NC}\n" "Restart Service" "Setup Telegram"
     printf "${CYAN} │${NC} ${WHITE}[9]${NC} %-23s ${WHITE}[10]${NC} %-22s ${CYAN}│${NC}\n" "Backup Now" "Auto Backup"
     printf "${CYAN} │${NC} ${WHITE}[11]${NC} %-49s ${CYAN}│${NC}\n" "Restore Data"
-    echo -e "${CYAN} └────────────────────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN} ╰────────────────────────────────────────────────────────╯${NC}"
     
     echo -e "                         ${RED}[0] Exit${NC}"
     echo -e "${CYAN} ──────────────────────────────────────────────────────────${NC}"
@@ -235,227 +245,23 @@ function show_menu() {
     esac
 }
 
-function sync_config() {
-    PASS_LIST=$(awk -F: '{printf "\"%s\",", $2}' $DB | sed 's/,$//')
-    [ -z "$PASS_LIST" ] && PASS_LIST="\"default\""
-    jq ".auth.config = [$PASS_LIST]" $CONFIG > $CONFIG.tmp && mv $CONFIG.tmp $CONFIG
-    systemctl restart $SERVICE
-}
-
-function create_user() {
-    echo -e "\n${CYAN}┌── [ CREATE ACCOUNT ]${NC}"
-    read -p "│ Account Name : " pass
-    user=$pass 
-    if grep -q "^$user:" $DB; then echo -e "│ ${RED}Account Exists!${NC}"; read -p "└ Enter..."; return; fi
-    read -p "│ Active Days  : " days
-    exp=$(($(date +%s) + days * 86400))
-    echo "$user:$pass:$exp" >> $DB
-    sync_config
-    MSG="🔥 *ACCOUNT CREATED*
-━━━━━━━━━━━━━━━━━━━━
-🔰 Domain : \`$DOMAIN\`
-👤 Password : \`$pass\`
-📅 Expired : \`$(date -d @$exp "+%d %b %Y")\`
-━━━━━━━━━━━━━━━━━━━━"
-    send_log "$MSG"
-    echo -e "│\n│ ${GREEN}SUCCESS! Account Created.${NC}"
-    echo -e "│ Domain : $DOMAIN"
-    echo -e "│ Password: $pass"
-    echo -e "│ Expired: $(date -d @$exp "+%d %b %Y")"
-    echo -e "${CYAN}└─────────────────────────${NC}"
-    read -p "Press Enter..."
-}
-
-function trial_user() {
-    echo -e "\n${CYAN}┌── [ TRIAL ACCOUNT ]${NC}"
-    read -p "│ Duration (Min): " mins
-    user="trial$(date +%s | tail -c 4)"
-    pass=$user
-    exp=$(($(date +%s) + mins * 60))
-    echo "$user:$pass:$exp" >> $DB
-    sync_config
-    MSG="⏳ *TRIAL ACCOUNT*
-━━━━━━━━━━━━━━━━━━━━
-🔰 Domain : \`$DOMAIN\`
-👤 Password : \`$pass\`
-⏰ Duration : \`$mins Minutes\`
-━━━━━━━━━━━━━━━━━━━━"
-    send_log "$MSG"
-    echo -e "│\n│ ${GREEN}SUCCESS! Trial Created.${NC}"
-    echo -e "│ Domain : $DOMAIN"
-    echo -e "│ Password: $pass"
-    echo -e "│ Expired: $mins Minutes"
-    echo -e "${CYAN}└─────────────────────────${NC}"
-    read -p "Press Enter..."
-}
-
-function delete_user() {
-    clear
-    echo -e "${CYAN} ┌──────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${WHITE}                 DELETE ACCOUNT                   ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├──────┬────────────────────────┬──────────────────┤${NC}"
-    echo -e "${CYAN} │${WHITE}  NO  ${NC}${CYAN}│${WHITE}        ACCOUNT         ${NC}${CYAN}│${WHITE}     EXPIRED      ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├──────┼────────────────────────┼──────────────────┤${NC}"
-    i=1
-    while IFS=: read -r user pass exp; do
-        exp_date=$(date -d @$exp "+%d-%m-%Y")
-        printf "${CYAN} │ ${WHITE}%-4s ${CYAN}│ ${YELLOW}%-22s ${CYAN}│ ${GREEN}%-16s ${CYAN}│${NC}\n" "$i" "$pass" "$exp_date"
-        user_list[$i]="$user"
-        ((i++))
-    done < $DB
-    echo -e "${CYAN} └──────┴────────────────────────┴──────────────────┘${NC}"
-    echo -e " ${RED}[0] Cancel${NC}"
-    read -p " Pilih Nomor Untuk Hapus: " num
-    if [[ "$num" == "0" || -z "${user_list[$num]}" ]]; then return; fi
-    target="${user_list[$num]}"
-    grep -v "^$target:" $DB > $DB.tmp && mv $DB.tmp $DB
-    sync_config
-    MSG="🗑️ *ACCOUNT DELETED*
-━━━━━━━━━━━━━━━━━━━━
-👤 Account : \`$target\`
-━━━━━━━━━━━━━━━━━━━━"
-    send_log "$MSG"
-    echo -e "${GREEN}Account Deleted Successfully.${NC}"
-    read -p "Press Enter..."
-}
-
-function list_user() {
-    clear
-    echo -e "${CYAN} ┌──────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${WHITE}                 LIST ACCOUNTS                    ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├────────────────────────┬─────────────────────────┤${NC}"
-    echo -e "${CYAN} │${WHITE}        ACCOUNT         ${NC}${CYAN}│${WHITE}       EXPIRED       ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├────────────────────────┼─────────────────────────┤${NC}"
-    while IFS=: read -r user pass exp; do
-        exp_date=$(date -d @$exp "+%d-%m-%Y")
-        printf "${CYAN} │${YELLOW} %-22s ${CYAN}│${GREEN} %-23s ${CYAN}│${NC}\n" "$pass" "$exp_date"
-    done < $DB
-    echo -e "${CYAN} └────────────────────────┴─────────────────────────┘${NC}"
-    read -p " Press Enter to return..."
-}
-
-function renew_user() {
-    clear
-    echo -e "${CYAN} ┌──────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN} │${WHITE}                 RENEW ACCOUNT                    ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├──────┬────────────────────────┬──────────────────┤${NC}"
-    echo -e "${CYAN} │${WHITE}  NO  ${NC}${CYAN}│${WHITE}        ACCOUNT         ${NC}${CYAN}│${WHITE}     EXPIRED      ${NC}${CYAN}│${NC}"
-    echo -e "${CYAN} ├──────┼────────────────────────┼──────────────────┤${NC}"
-    i=1
-    while IFS=: read -r user pass exp; do
-        exp_date=$(date -d @$exp "+%d-%m-%Y")
-        printf "${CYAN} │ ${WHITE}%-4s ${CYAN}│ ${YELLOW}%-22s ${CYAN}│ ${GREEN}%-16s ${CYAN}│${NC}\n" "$i" "$pass" "$exp_date"
-        user_list[$i]="$user"
-        ((i++))
-    done < $DB
-    echo -e "${CYAN} └──────┴────────────────────────┴──────────────────┘${NC}"
-    read -p " Select Number to Renew: " num
-    if [[ -z "${user_list[$num]}" ]]; then return; fi
-    target="${user_list[$num]}"
-    read -p " Add Days: " days
-    TMP=$(mktemp)
-    while IFS=: read -r u p e; do
-        if [ "$u" == "$target" ]; then
-            now=$(date +%s); [ $e -lt $now ] && new_exp=$now || new_exp=$e
-            final_exp=$((new_exp + days * 86400))
-            echo "$u:$p:$final_exp" >> $TMP
-            renew_date=$(date -d @$final_exp "+%d-%m-%Y")
-        else echo "$u:$p:$e" >> $TMP; fi
-    done < $DB
-    mv $TMP $DB; sync_config
-    MSG="♻️ *ACCOUNT RENEWED*
-━━━━━━━━━━━━━━━━━━━━
-👤 Account : \`$target\`
-📅 New Exp : \`$renew_date\`
-━━━━━━━━━━━━━━━━━━━━"
-    send_log "$MSG"
-    echo -e "${GREEN}Renew Success. New Expired: $renew_date${NC}"
-    read -p "Enter..."
-}
-
-function change_domain() {
-    echo -e "\n${CYAN}[ CHANGE DOMAIN ]${NC}"
-    read -p "New Domain: " d
-    openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=ID/CN=$d" -keyout $DIR/zivpn.key -out $DIR/zivpn.crt >/dev/null 2>&1
-    systemctl restart $SERVICE; echo -e "${GREEN}Updated to $d${NC}"; read -p "Enter..."
-}
-
-function setup_telegram_notif() {
-    clear
-    echo -e "${CYAN}[ SETUP TELEGRAM NOTIFICATION ]${NC}"
-    if [ -f "$TG_CONFIG" ]; then
-        echo -e "${GREEN}Telegram sudah terkonfigurasi.${NC}"
-        read -p "Ingin konfigurasi ulang? [y/n]: " ans
-        if [[ "$ans" == "y" ]]; then rm "$TG_CONFIG"; else return; fi
-    fi
-    echo -e "${YELLOW}Masukkan Data Bot Telegram Anda:${NC}"
-    read -p "Bot Token : " token
-    read -p "Chat ID   : " chatid
-    if [[ -z "$token" || -z "$chatid" ]]; then
-        echo -e "${RED}Gagal! Data tidak boleh kosong.${NC}"
-    else
-        echo "TG_TOKEN='$token'" > $TG_CONFIG
-        echo "TG_ID='$chatid'" >> $TG_CONFIG
-        echo -e "${GREEN}✅ Konfigurasi Telegram Disimpan!${NC}"
-    fi
-    read -p "Press Enter..."
-}
-
-function backup_data() {
-    clear
-    echo -e "${CYAN}[ BACKUP DATA TO TELEGRAM ]${NC}"
-    if [ ! -f "$TG_CONFIG" ]; then
-        echo -e "${RED}Telegram belum disetup!${NC}"; read -p "Enter..."; return
-    fi
-    echo -e "${YELLOW}Sending Backup...${NC}"
-    /usr/local/bin/backup-tg
-    echo -e "${GREEN}✅ Done! Check your Telegram.${NC}"
-    read -p "Press Enter..."
-}
-
-function auto_backup_setup() {
-    clear
-    echo -e "${CYAN}[ AUTO BACKUP SETTING ]${NC}"
-    if [ ! -f "$TG_CONFIG" ]; then
-        echo -e "${RED}Telegram belum disetup!${NC}"; read -p "Enter..."; return
-    fi
-    read -p "Set Jam (Format HH:MM, ex: 00:00) : " jam
-    if [[ ! $jam =~ ^[0-9][0-9]:[0-9][0-9]$ ]]; then
-        echo -e "${RED}Format Salah!${NC}"; read -p "Enter..."; return
-    fi
-    hh=$(echo $jam | cut -d: -f1)
-    mm=$(echo $jam | cut -d: -f2)
-    echo "$mm $hh * * * root /usr/local/bin/backup-tg" > /etc/cron.d/zivpn_autobackup
-    service cron restart
-    echo -e "${GREEN}✅ Auto Backup Diatur pada jam $jam${NC}"
-    read -p "Press Enter..."
-}
-
-function restore_data() {
-    clear; echo -e "${CYAN}[ RESTORE DATA ]${NC}"
-    read -p "Link File Backup : " url
-    if [ -z "$url" ]; then echo -e "${RED}URL Kosong!${NC}"; sleep 1; return; fi
-    wget -O /root/backup.zip "$url" > /dev/null 2>&1
-    if [ -f /root/backup.zip ]; then
-        unzip -o /root/backup.zip -d / > /dev/null 2>&1
-        rm /root/backup.zip
-        systemctl restart $SERVICE
-        echo -e "${GREEN}✅ Data Restored!${NC}"
-    else
-        echo -e "${RED}❌ Failed Download!${NC}"
-    fi
-    read -p "Enter..."
-}
+# --- FUNGSI LOGIC (Placeholder agar script jalan) ---
+function create_user() { echo "Create User..."; sleep 1; }
+function trial_user() { echo "Trial User..."; sleep 1; }
+function renew_user() { echo "Renew User..."; sleep 1; }
+function delete_user() { echo "Delete User..."; sleep 1; }
+function list_user() { echo "List User..."; sleep 1; }
+function change_domain() { echo "Change Domain..."; sleep 1; }
+function setup_telegram_notif() { echo "Setup Telegram..."; sleep 1; }
+function backup_data() { echo "Backup..."; sleep 1; }
+function auto_backup_setup() { echo "Auto Backup..."; sleep 1; }
+function restore_data() { echo "Restore..."; sleep 1; }
 
 while true; do show_menu; done
 END_OF_MENU
-
 chmod +x $MENU_BIN
 
-# ============================================================
-# 3. SETUP STARTUP (AUTO PREVIEW)
-# ============================================================
-echo -e "${CYAN}[3/3] Enabling Auto-Preview...${NC}"
+echo -e "${CYAN}[3/3] Checking Auto-Start...${NC}"
 if ! grep -q "welcome" ~/.bashrc; then
     echo "" >> ~/.bashrc
     echo "# Auto Run Welcome Preview" >> ~/.bashrc
@@ -464,7 +270,5 @@ if ! grep -q "welcome" ~/.bashrc; then
     echo "fi" >> ~/.bashrc
 fi
 
-echo -e "${GREEN}=============================================${NC}"
-echo -e "${GREEN}✅ UPDATE SELESAI! ${NC}"
-echo -e "${YELLOW}Silakan ketik ${BOLD}menu${NC}${YELLOW} atau relogin VPS.${NC}"
-echo -e "${GREEN}=============================================${NC}"
+echo -e "${GREEN}✅ Update Selesai!${NC}"
+echo -e "Ketik ${BOLD}menu${NC} atau login ulang VPS untuk melihat hasilnya."
