@@ -263,7 +263,6 @@ function show_menu() {
     echo -e "${PURPLE} │${CYAN} Users   : ${WHITE}$USERS Account(s)${NC}"
     echo -e "${PURPLE} ├─────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} Service : ${STAT_VPN}    ${CYAN}API : ${STAT_API}${NC}"
-    # --- MENAMPILKAN API KEY ---
     echo -e "${PURPLE} │${CYAN} API Key : ${YELLOW}$API_KEY${NC}"
     echo -e "${PURPLE} ╰─────────────────────────────────────────────────${NC}"
     
