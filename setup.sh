@@ -1,6 +1,6 @@
 #!/bin/bash
 # WINTUNELING VPN - ULTIMATE EDITION
-# Features: Telegram-Style Output, Clean Menu (Open Box), Auto Backup, Fix Profile
+# Features: Display API Key, Generate API, Telegram Info (ISP/Region), Open Box Widget
 
 # ==========================================
 # 0. FIX PROFILE & PERMISSIONS
@@ -57,7 +57,7 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
         echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
         echo -e "${RED}            ⛔ LICENSE EXPIRED: $EXP_DATE${NC}"; exit 1
-        echo -e "${RED}     Please Contact t.me/WINTUNELING VPNN For License${NC}"
+        echo -e "${RED}     Please Contact t.me/WINTUNELING VPN For License${NC}"
         echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
     else
         echo -e "${PURPLE}┌──────────────────────────────────────────────────┐${NC}"
@@ -98,13 +98,12 @@ mkdir -p $DIR $DIR_API
 # --- PERBAIKAN: WAJIB INPUT DOMAIN ---
 clear
 echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}│${NC}            ISI DOMAIN SERVER ANDA                 ${NC}"
+echo -e "${YELLOW}│             ISI DOMAIN SERVER ANDA               ${NC}"
 echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
 while true; do
     read -p "Input Domain (e.g., vpn.myserver.com): " DOMAIN_INPUT
     if [ -n "$DOMAIN_INPUT" ]; then
         echo -e "${GREEN}Domain saved: $DOMAIN_INPUT${NC}"
-        # Simpan domain untuk keperluan lain jika perlu
         mkdir -p /etc/xray
         echo "$DOMAIN_INPUT" > /etc/xray/domain
         break
@@ -112,7 +111,6 @@ while true; do
         echo -e "${RED}Error:DOMAIN TIDAK BOLEH KOSONG!!!.${NC}"
     fi
 done
-# -------------------------------------
 
 ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
@@ -222,7 +220,12 @@ function get_info() {
     IP=$(curl -s ipv4.icanhazip.com)
     DOMAIN=$(openssl x509 -noout -subject -in $DIR/zivpn.crt 2>/dev/null | sed -n 's/^.*CN = //p')
     [ -z "$DOMAIN" ] && DOMAIN="No Domain"
-    ISP=$(curl -s ip-api.com/json | jq -r .isp)
+    
+    # Ambil Info ISP & Region sekaligus
+    JSON_IP=$(curl -s ip-api.com/json)
+    ISP=$(echo "$JSON_IP" | jq -r .isp)
+    REGION=$(echo "$JSON_IP" | jq -r .regionName)
+    
     CLIENT=$(cat /etc/wintunnel/client 2>/dev/null || echo "User")
     EXP_DATE=$(cat /etc/wintunnel/exp 2>/dev/null || echo "Lifetime")
     
@@ -243,9 +246,8 @@ function show_menu() {
     clear
     get_info
     
-    # --- PERBAIKAN WIDGET (OPEN BOX / TANPA PENUTUP) ---
     echo -e "${PURPLE} ╭────────────────────────────────────────────────${NC}"
-    echo -e "${PURPLE} │${CYAN}                WINTUNELING ZIVVPN${NC}"
+    echo -e "${PURPLE} │${CYAN}                 WINTUNELING ZIVVPN${NC}"
     echo -e "${PURPLE} ├────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} OS      : ${YELLOW}$OS${NC}"
     echo -e "${PURPLE} │${CYAN} IP      : ${YELLOW}$IP${NC}"
@@ -261,6 +263,8 @@ function show_menu() {
     echo -e "${PURPLE} │${CYAN} Users   : ${WHITE}$USERS Account(s)${NC}"
     echo -e "${PURPLE} ├─────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} Service : ${STAT_VPN}    ${CYAN}API : ${STAT_API}${NC}"
+    # --- MENAMPILKAN API KEY ---
+    echo -e "${PURPLE} │${CYAN} API Key : ${YELLOW}$API_KEY${NC}"
     echo -e "${PURPLE} ╰─────────────────────────────────────────────────${NC}"
     
     echo -e ""
@@ -268,16 +272,37 @@ function show_menu() {
     echo -e "  ${BLUE}[3]${NC} Renew Account         ${BLUE}[4]${NC} Delete Account"
     echo -e "  ${BLUE}[5]${NC} List Accounts         ${BLUE}[6]${NC} Change Domain"
     echo -e "  ${BLUE}[7]${NC} Backup/Restore        ${BLUE}[8]${NC} Setup Notif"
-    echo -e "  ${BLUE}[9]${NC} Restart Service       ${BLUE}[0]${NC} Exit"
+    echo -e "  ${BLUE}[9]${NC} Restart Service       ${BLUE}[10]${NC} Generate API"
+    echo -e "  ${BLUE}[0]${NC} Exit"
     echo -e ""
     echo -ne "  ${YELLOW}Select Option : ${NC}"
     read opt
     case $opt in
         1) create_user ;; 2) trial_user ;; 3) renew_user ;; 4) delete_user ;;
         5) list_user ;; 6) change_domain ;; 7) backup_menu ;; 8) setup_telegram ;;
-        9) systemctl restart $SERVICE; echo "Restarted."; sleep 1 ;; 0) exit 0 ;;
+        9) systemctl restart $SERVICE; echo "Restarted."; sleep 1 ;; 
+        10) generate_api ;; # New function
+        0) exit 0 ;;
         *) echo "Invalid"; sleep 1 ;;
     esac
+}
+
+# --- FUNGSI GENERATE API BARU ---
+function generate_api() {
+    echo -e "\n${CYAN}[ GENERATE NEW API KEY ]${NC}"
+    echo -e "${YELLOW}Warning: This will change the API Key for all connections.${NC}"
+    read -p "Are you sure you want to generate a new key? [y/n]: " answer
+    if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+        # Generate random 3 bytes hex string (6 characters)
+        NEW_KEY=$(openssl rand -hex 3)
+        echo "$NEW_KEY" > "$API_KEY_FILE"
+        echo -e "${GREEN}Success! New API Key generated.${NC}"
+        echo -e "Your New API Key: ${YELLOW}$NEW_KEY${NC}"
+        sleep 2
+    else
+        echo -e "${RED}Cancelled.${NC}"
+        sleep 1
+    fi
 }
 
 function sync_config() {
@@ -312,11 +337,14 @@ function create_user() {
     echo -e "Terimakasih Sudah Mengunakan Layanan Kami"
     echo -e ""
     
+    # Update Notification with ISP & Region
     TEXT="<code><b>✅ ACCOUNT SUCCESS CREATED</b>
 ━━━━━━━━━━━━━━━━━━━━
 <b>Domain :</b> <code>${DOMAIN}</code>
 <b>Pass   :</b> <code>${pass}</code>
 <b>Exp    :</b> <code>${exp_date}</code>
+<b>ISP    :</b> <code>${ISP}</code>
+<b>Region :</b> <code>${REGION}</code>
 ━━━━━━━━━━━━━━━━━━━━
 <i>Terimakasih Sudah Mengunakan Layanan Kami</i></code>"
     send_log "$TEXT"
@@ -347,11 +375,14 @@ function trial_user() {
     echo -e "Terimakasih Sudah Mengunakan Layanan Kami"
     echo -e ""
 
+    # Update Notification with ISP & Region
     TEXT="<code><b>⏳ TRIAL ACCOUNT CREATED</b>
 ━━━━━━━━━━━━━━━━━━━━
 <b>Domain :</b> <code>${DOMAIN}</code>
 <b>Pass   :</b> <code>${pass}</code>
 <b>Exp    :</b> <code>${mins} Minutes</code>
+<b>ISP    :</b> <code>${ISP}</code>
+<b>Region :</b> <code>${REGION}</code>
 ━━━━━━━━━━━━━━━━━━━━
 <i>Terimakasih Sudah Mengunakan Layanan Kami</i></code>"
     send_log "$TEXT"
@@ -430,10 +461,10 @@ cat << 'EOF' > $LANDING_BIN
 CYAN='\033[0;36m'; NC='\033[0m'
 clear
 echo -e "${CYAN}┌──────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${NC}             WINTUNELING ZIVPN SERVER${NC}"
+echo -e "${CYAN}│${NC}             WINTUNELING ZIVPN SERVER           ${CYAN}│${NC}"
 echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
 echo -e ""
-echo -e "${CYAN}      >>> PRESS [ ENTER ] TO ENTER MENU <<<${NC}"
+echo -e "${CYAN}       >>> PRESS [ ENTER ] TO ENTER MENU <<<${NC}"
 read -n 1 -s -r -p ""
 menu
 EOF
@@ -454,7 +485,7 @@ systemctl start $SERVICE_VPN $SERVICE_API
 
 clear
 echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}             SUCCESFULLY INSTALL SCRIPT${NC}"
+echo -e "${YELLOW}             SUCCESFULLY INSTALL SCRIPT            ${NC}"
 echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
 echo -e " Menu Style  : Neon & Open Box"
 echo -e " Command     : menu"
