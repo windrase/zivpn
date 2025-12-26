@@ -56,12 +56,12 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
     TODAY=$(date +%Y-%m-%d)
     if [[ "$TODAY" > "$EXP_DATE" ]]; then
         echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
-        echo -e "${RED}         ⛔ LICENSE EXPIRED: $EXP_DATE${NC}"; exit 1
+        echo -e "${RED}            ⛔ LICENSE EXPIRED: $EXP_DATE${NC}"; exit 1
         echo -e "${RED}     Please Contact t.me/WINTUNELING VPNN For License${NC}"
         echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
     else
         echo -e "${PURPLE}┌──────────────────────────────────────────────────┐${NC}"
-        echo -e "${GREEN}       ✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
+        echo -e "${GREEN}           ✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
         echo -e "${GREEN}           THANKS FOR USING THIS SCRIPT${NC}"
         echo -e "${PURPLE}└──────────────────────────────────────────────────┘${NC}"
         mkdir -p /etc/wintunnel
@@ -244,25 +244,24 @@ function show_menu() {
     get_info
     
     # --- PERBAIKAN WIDGET (OPEN BOX / TANPA PENUTUP) ---
-    echo -e "${PURPLE} ╭──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} ╭────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN}                WINTUNELING ZIVVPN${NC}"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} ├────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} OS      : ${YELLOW}$OS${NC}"
     echo -e "${PURPLE} │${CYAN} IP      : ${YELLOW}$IP${NC}"
     echo -e "${PURPLE} │${CYAN} Domain  : ${YELLOW}$DOMAIN${NC}"
     echo -e "${PURPLE} │${CYAN} ISP     : ${YELLOW}$ISP${NC}"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} ├─────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} Client  : ${YELLOW}$CLIENT${NC}"
     echo -e "${PURPLE} │${CYAN} Exp     : ${YELLOW}$EXP_DATE${NC}"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} ├─────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} RAM     : ${WHITE}$RAM_USED/$RAM_TOTAL MB ($RAM_PERC%)${NC}"
     echo -e "${PURPLE} │${CYAN} CPU     : ${WHITE}$CPU_MODEL${NC}"
     echo -e "${PURPLE} │${CYAN} Uptime  : ${WHITE}$UPTIME${NC}"
     echo -e "${PURPLE} │${CYAN} Users   : ${WHITE}$USERS Account(s)${NC}"
-    echo -e "${PURPLE} ├──────────────────────────────────────────────────────────${NC}"
-    # Perbaikan Service & API (Tanpa Penutup & Satu Baris)
+    echo -e "${PURPLE} ├─────────────────────────────────────────────────${NC}"
     echo -e "${PURPLE} │${CYAN} Service : ${STAT_VPN}    ${CYAN}API : ${STAT_API}${NC}"
-    echo -e "${PURPLE} ╰──────────────────────────────────────────────────────────${NC}"
+    echo -e "${PURPLE} ╰─────────────────────────────────────────────────${NC}"
     
     echo -e ""
     echo -e "  ${BLUE}[1]${NC} Create Account        ${BLUE}[2]${NC} Create Trial"
@@ -455,7 +454,7 @@ systemctl start $SERVICE_VPN $SERVICE_API
 
 clear
 echo -e "${GREEN}┌──────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}           SUCCESFULLY INSTALL SCRIPT${NC}"
+echo -e "${YELLOW}             SUCCESFULLY INSTALL SCRIPT${NC}"
 echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
 echo -e " Menu Style  : Neon & Open Box"
 echo -e " Command     : menu"
