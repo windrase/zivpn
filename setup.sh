@@ -61,7 +61,7 @@ if echo "$LICENSE_DATA" | grep -q "$MYIP"; then
         echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
     else
         echo -e "${PURPLE}┌──────────────────────────────────────────────────┐${NC}"
-        echo -e "${GREEN}              ✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
+        echo -e "${GREEN}             ✅ LICENSE ACTIVE! ($CLIENT_NAME)${NC}"
         echo -e "${GREEN}           THANKS FOR USING THIS SCRIPT${NC}"
         echo -e "${PURPLE}└──────────────────────────────────────────────────┘${NC}"
         mkdir -p /etc/wintunnel
